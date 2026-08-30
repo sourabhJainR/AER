@@ -11,5 +11,5 @@
   "repository": { "type": "git", "url": "https://github.com/sourabhJainR/AER.git", "directory": "implementations/typescript" },
   "scripts": { "build": "tsc -p tsconfig.json", "test": "node test/test.mjs" },
   "engines": { "node": ">=20" },
-  "devDependencies": { "typescript": "^5.0.0" }
+  "devDependencies": { "typescript": "^5.0.0", "@types/node": "^22.0.0" }
 }
