@@ -12,8 +12,7 @@ public static class AerPatch
     public static AerValue Apply(AerValue root, IEnumerable<AerPatchOperation> operations)
     {
         var current = root;
-        foreach (var operation in operations)
-            current = ApplyOne(current, operation);
+        foreach (var operation in operations) current = ApplyOne(current, operation);
         return current;
     }
 
@@ -26,9 +25,7 @@ public static class AerPatch
 
     private static AerValue Mutate(AerValue node, string[] segments, int index, AerPatchOperation op)
     {
-        if (index == segments.Length - 1)
-            return ApplyLeaf(node, segments[index], op);
-
+        if (index == segments.Length - 1) return ApplyLeaf(node, segments[index], op);
         var segment = segments[index];
         return node.Kind switch
         {
@@ -41,7 +38,8 @@ public static class AerPatch
     private static AerValue MutateObject(IReadOnlyDictionary<string,AerValue> source, string key, string[] segments, int index, AerPatchOperation op)
     {
         if (!source.TryGetValue(key, out var child)) throw new AerFormatException("AER005", $"Path does not exist: /{string.Join('/', segments.Take(index + 1))}");
-        var map = new Dictionary<string,AerValue>(source, StringComparer.Ordinal) { [key] = Mutate(child, segments, index + 1, op) };
+        var map = source.ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
+        map[key] = Mutate(child, segments, index + 1, op);
         return AerValue.Object(map);
     }
 
@@ -57,7 +55,7 @@ public static class AerPatch
     {
         if (node.Kind == AerKind.Object)
         {
-            var map = new Dictionary<string,AerValue>((IReadOnlyDictionary<string,AerValue>)node.Data!, StringComparer.Ordinal);
+            var map = ((IReadOnlyDictionary<string,AerValue>)node.Data!).ToDictionary(pair => pair.Key, pair => pair.Value, StringComparer.Ordinal);
             switch (op.Op)
             {
                 case AerPatchOp.Add:
