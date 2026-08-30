@@ -37,8 +37,42 @@ jobs:
       - name: Run benchmark smoke test
         run: dotnet run --project benchmarks/Aer.Benchmarks.csproj --configuration Release
 
+      - name: Run AI effectiveness benchmark
+        run: dotnet run --project benchmarks/effectiveness/Aer.Effectiveness.csproj --configuration Release
+
       - name: Pack NuGet package
         run: dotnet pack src/Aer.Core/Aer.Core.csproj --configuration Release --no-build --output ./artifacts
 
       - name: Verify package exists
         run: test -s ./artifacts/AER.0.1.0.nupkg
+
+      - name: Smoke test NuGet package from clean consumer
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf ./artifacts/package-consumer
+          dotnet new console --framework net9.0 --output ./artifacts/package-consumer --no-restore
+          dotnet add ./artifacts/package-consumer package AER --version 0.1.0 --source ./artifacts --no-restore
+          cat > ./artifacts/package-consumer/Program.cs <<'EOF'
+          using Aer;
+
+          var value = AerValue.Object(new Dictionary<string, AerValue>
+          {
+              ["status"] = AerValue.String("ok"),
+              ["count"] = AerValue.Int(2)
+          });
+
+          var text = AER.Serialize(value);
+          var roundTrip = AER.Deserialize(text);
+          if (roundTrip.ToJsonElement().GetProperty("status").GetString() != "ok")
+              return 1;
+
+          var binary = AER.ToBinary(value);
+          var binaryRoundTrip = AER.FromBinary(binary);
+          if (binaryRoundTrip.ToJsonElement().GetProperty("count").GetInt64() != 2)
+              return 1;
+
+          return 0;
+          EOF
+          dotnet restore ./artifacts/package-consumer --source ./artifacts --source https://api.nuget.org/v3/index.json
+          dotnet run --project ./artifacts/package-consumer --configuration Release --no-restore
