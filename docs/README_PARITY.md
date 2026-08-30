@@ -1,0 +1,1 @@
+Cross-language parity work is implemented on `feature/production-aer`. See `docs/CROSS_LANGUAGE.md`, `docs/INTEROPERABILITY.md`, `docs/PROPERTY_FUZZING.md`, and `docs/PARITY_CHECKLIST.md` for the wire contract, feature matrix, test strategy, and release gate.
