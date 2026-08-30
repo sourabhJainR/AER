@@ -28,11 +28,20 @@ jobs:
       - name: Build MCP adapter
         run: dotnet build src/Aer.Mcp/Aer.Mcp.csproj --configuration Release
 
+      - name: Build orchestrator integration
+        run: dotnet build src/Aer.Orchestration/Aer.Orchestration.csproj --configuration Release
+
       - name: Build CLI
         run: dotnet build src/Aer.Cli/Aer.Cli.csproj --configuration Release
 
       - name: Run conformance and negative-input suite
         run: dotnet run --project tests/Aer.Conformance/Aer.Conformance.csproj --configuration Release
+
+      - name: Run MCP and orchestrator integration contracts
+        run: dotnet run --project tests/Aer.Integration/Aer.Integration.csproj --configuration Release
+
+      - name: Run deterministic property and fuzz suite
+        run: dotnet run --project tests/Aer.Fuzz/Aer.Fuzz.csproj --configuration Release
 
       - name: Run benchmark smoke test
         run: dotnet run --project benchmarks/Aer.Benchmarks.csproj --configuration Release
