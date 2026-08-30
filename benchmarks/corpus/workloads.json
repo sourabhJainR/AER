@@ -1,0 +1,41 @@
+{
+  "version": "1.0",
+  "workloads": [
+    {
+      "id": "mcp-users-small",
+      "category": "mcp",
+      "description": "Small repeated user records typical of an MCP tool response.",
+      "value": {"users":[{"id":101,"name":"Amit","role":"Engineer","active":true},{"id":102,"name":"Priya","role":"Manager","active":true},{"id":103,"name":"Rahul","role":"Engineer","active":false}]}
+    },
+    {
+      "id": "mcp-users-large",
+      "category": "mcp",
+      "description": "Larger uniform record response for context compression.",
+      "value": {"users":[{"id":201,"name":"User01","role":"Engineer","level":3,"region":"IN"},{"id":202,"name":"User02","role":"Engineer","level":4,"region":"IN"},{"id":203,"name":"User03","role":"Manager","level":5,"region":"US"},{"id":204,"name":"User04","role":"Engineer","level":4,"region":"UK"},{"id":205,"name":"User05","role":"Lead","level":6,"region":"IN"},{"id":206,"name":"User06","role":"Engineer","level":3,"region":"US"},{"id":207,"name":"User07","role":"Manager","level":5,"region":"IN"},{"id":208,"name":"User08","role":"Engineer","level":2,"region":"DE"}]}
+    },
+    {
+      "id": "analytics-tabular",
+      "category": "analytics",
+      "description": "Repeated dimensions and measures similar to BI/FP&A data.",
+      "value": {"periods":[{"period":"2026-01","entity":"IND","revenue":1250000.25,"expense":820000.10,"variance":0.07},{"period":"2026-02","entity":"IND","revenue":1310000.80,"expense":845000.15,"variance":0.09},{"period":"2026-03","entity":"IND","revenue":1285000.40,"expense":860000.20,"variance":-0.02},{"period":"2026-01","entity":"USA","revenue":2100000.00,"expense":1410000.50,"variance":0.04}]}
+    },
+    {
+      "id": "nested-config",
+      "category": "configuration",
+      "description": "Nested configuration with arrays and policy fields.",
+      "value": {"service":{"name":"export","timeoutMs":5000,"retries":3,"features":{"delta":true,"compression":true}},"regions":["IN","US","EU"],"limits":{"rows":100000,"payloadBytes":16777216}}
+    },
+    {
+      "id": "irregular-records",
+      "category": "irregular",
+      "description": "Heterogeneous records where adaptive tabular encoding should not overreach.",
+      "value": {"events":[{"type":"login","userId":41,"success":true},{"type":"export","userId":41,"format":"csv","rows":1204},{"type":"error","code":"AER009","message":"Invalid boolean value.","retryable":false}]}
+    },
+    {
+      "id": "unicode-typed",
+      "category": "typed",
+      "description": "Unicode, decimal, timestamps, references and null-like values.",
+      "value": {"name":"Sourabh Jain","city":"Hyderabad","currency":"INR","amount":123456789.1234,"created":"2026-08-30T09:00:00+05:30","notes":"AI / LLM / MCP — ₹ data","reference":"C1","optional":null}
+    }
+  ]
+}
