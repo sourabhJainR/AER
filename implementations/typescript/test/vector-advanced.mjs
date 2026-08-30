@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import { AerKind, v, table, decodeBinary, encodeBinary } from '../dist/advanced.js';
+const hex='41455242010b02000000000000000200000000000000696404000000000000006e616d650100000000000000020100000000000000050400000000000000416d6974';
+const got=decodeBinary(Uint8Array.from(Buffer.from(hex,'hex')));
+assert.equal(got.kind,AerKind.Table);
+assert.deepEqual(got.data.columns,['id','name']);
+assert.equal(got.data.rows[0][0].data,1n);
+assert.equal(got.data.rows[0][1].data,'Amit');
+assert.equal(Buffer.from(encodeBinary(table(['id','name'],[[v(AerKind.Int,1n),v(AerKind.String,'Amit')]]))).toString('hex'),hex);
+console.log('frozen binary vector passed');
