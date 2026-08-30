@@ -7,5 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../src/Aer.Core/Aer.Core.csproj" />
+    <Compile Remove="effectiveness/**/*.cs" />
   </ItemGroup>
 </Project>
