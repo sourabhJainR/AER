@@ -6,8 +6,11 @@ using Aer;
 var baseDirectory = AppContext.BaseDirectory;
 var repoRoot = Path.GetFullPath(Path.Combine(baseDirectory, "../../../../.."));
 var corpusPath = Path.Combine(repoRoot, "benchmarks", "corpus", "workloads.json");
-var corpus = JsonSerializer.Deserialize<Corpus>(File.ReadAllText(corpusPath))
+var jsonOptions = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+var corpus = JsonSerializer.Deserialize<Corpus>(File.ReadAllText(corpusPath), jsonOptions)
     ?? throw new InvalidOperationException("Benchmark corpus is invalid.");
+if (corpus.Workloads is null || corpus.Workloads.Count == 0)
+    throw new InvalidOperationException("Benchmark corpus contains no workloads.");
 
 const int warmup = 50;
 const int iterations = 500;
@@ -15,6 +18,9 @@ var results = new List<BenchmarkResult>(corpus.Workloads.Count);
 
 foreach (var workload in corpus.Workloads)
 {
+    if (string.IsNullOrWhiteSpace(workload.Id) || workload.Value.ValueKind is JsonValueKind.Undefined or JsonValueKind.Null)
+        throw new InvalidOperationException($"Benchmark workload '{workload.Id}' is invalid.");
+
     var value = AerValue.FromJson(workload.Value);
     var jsonText = JsonSerializer.Serialize(workload.Value);
     var jsonBytes = Encoding.UTF8.GetByteCount(jsonText);
@@ -25,11 +31,6 @@ foreach (var workload in corpus.Workloads)
     var expected = JsonSerializer.SerializeToElement(workload.Value);
     var textRoundTrip = AER.Deserialize(aerText).ToJsonElement();
     var binaryRoundTrip = AER.FromBinary(aerBinary).ToJsonElement();
-
-    var encodeText = Measure(warmup, iterations, () => _ = AER.Serialize(value));
-    var decodeText = Measure(warmup, iterations, () => _ = AER.Deserialize(aerText));
-    var encodeBinary = Measure(warmup, iterations, () => _ = AER.ToBinary(value));
-    var decodeBinary = Measure(warmup, iterations, () => _ = AER.FromBinary(aerBinary));
 
     results.Add(new BenchmarkResult(
         workload.Id,
@@ -42,14 +43,17 @@ foreach (var workload in corpus.Workloads)
         Ratio(Encoding.UTF8.GetByteCount(aerAi), jsonBytes),
         JsonElement.DeepEquals(expected, textRoundTrip),
         JsonElement.DeepEquals(expected, binaryRoundTrip),
-        encodeText,
-        decodeText,
-        encodeBinary,
-        decodeBinary));
+        Measure(warmup, iterations, () => _ = AER.Serialize(value)),
+        Measure(warmup, iterations, () => _ = AER.Deserialize(aerText)),
+        Measure(warmup, iterations, () => _ = AER.ToBinary(value)),
+        Measure(warmup, iterations, () => _ = AER.FromBinary(aerBinary))));
 }
 
+if (results.Any(r => !r.TextRoundTrip || !r.BinaryRoundTrip))
+    throw new InvalidOperationException("One or more effectiveness workloads failed canonical round-trip fidelity checks.");
+
 var report = new BenchmarkReport(
-    "1.0",
+    "1.1",
     typeof(AER).Assembly.GetName().Version?.ToString() ?? "unknown",
     DateTimeOffset.UtcNow,
     corpus.Version,
