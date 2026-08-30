@@ -1,7 +1,7 @@
 using System.Text.Json;
 using Aer;
 
-var random = new Random(0xAER);
+var random = new Random(0xAEE);
 const int cases = 2000;
 
 for (var i = 0; i < cases; i++)
