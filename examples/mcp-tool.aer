@@ -1,0 +1,10 @@
+@aer 1
+
+@tool getEmployees
+status:success
+requestId:req-01
+result[4]{id,name,role,status}:
+  101,Amit,Engineer,ready
+  102,Priya,Manager,busy
+  103,Rahul,Engineer,ready
+  104,Neha,Director,ready
