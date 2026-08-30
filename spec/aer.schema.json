@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aer-format.dev/schema/aer-document.schema.json",
+  "title": "AER Document Metadata",
+  "description": "Metadata schema for AER documents. The AER grammar remains authoritative for parsing the payload itself.",
+  "type": "object",
+  "properties": {
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+$" },
+    "profile": { "type": "string", "enum": ["text", "ai", "binary"] },
+    "schema": { "type": ["string", "null"] }
+  },
+  "required": ["version", "profile"],
+  "additionalProperties": false
+}
