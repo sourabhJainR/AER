@@ -4,6 +4,7 @@
   "description": "AER format support with validation, formatting and JSON conversion.",
   "version": "0.1.0",
   "publisher": "aer-format",
+  "main": "./extension.js",
   "engines": { "vscode": ">=1.90.0" },
   "categories": ["Programming Languages", "Formatters"],
   "activationEvents": ["onLanguage:aer"],
@@ -13,6 +14,11 @@
       "aliases": ["AER", "aer"],
       "extensions": [".aer"],
       "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "aer",
+      "scopeName": "source.aer",
+      "path": "./syntaxes/aer.tmLanguage.json"
     }],
     "commands": [
       { "command": "aer.format", "title": "AER: Format Document" },
@@ -36,5 +42,13 @@
         }
       }
     }
+  },
+  "scripts": {
+    "compile": "tsc extension.ts --target ES2022 --module commonjs --moduleResolution node --esModuleInterop --skipLibCheck --outDir ."
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.90.0",
+    "typescript": "^5.6.0"
   }
 }
