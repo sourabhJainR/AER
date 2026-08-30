@@ -37,10 +37,21 @@ public sealed record AerValue(AerKind Kind, object? Data)
             AerKind.Reference => new Dictionary<string, object?> { ["$ref"] = Data },
             AerKind.Array => ((IReadOnlyList<AerValue>)Data!).Select(v => v.ToJsonElement(options)).ToArray(),
             AerKind.Object => ((IReadOnlyDictionary<string, AerValue>)Data!).ToDictionary(k => k.Key, v => v.Value.ToJsonElement(options)),
-            AerKind.Table => ((AerTable)Data!).Rows.Select(r => r.Select(v => v.ToJsonElement(options)).ToArray()).ToArray(),
+            AerKind.Table => TableToJson((AerTable)Data!, options),
             _ => throw new InvalidOperationException($"Unsupported kind {Kind}")
         };
         return JsonSerializer.SerializeToElement(value, options);
+    }
+
+    private static object[] TableToJson(AerTable table, JsonSerializerOptions? options)
+    {
+        return table.Rows.Select(row =>
+        {
+            var obj = new Dictionary<string, object?>(StringComparer.Ordinal);
+            for (var i = 0; i < table.Columns.Count; i++)
+                obj[table.Columns[i]] = row[i].ToJsonElement(options);
+            return obj;
+        }).Cast<object>().ToArray();
     }
 
     public static AerValue FromObject(object? value)
