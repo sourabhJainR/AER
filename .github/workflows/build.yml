@@ -13,7 +13,7 @@ jobs:
         with:
           dotnet-version: 9.0.x
 
-      - name: Restore
+      - name: Restore core
         run: dotnet restore src/Aer.Core/Aer.Core.csproj
 
       - name: Build core
@@ -30,3 +30,6 @@ jobs:
 
       - name: Run conformance suite
         run: dotnet run --project tests/Aer.Conformance/Aer.Conformance.csproj --configuration Release
+
+      - name: Run benchmark smoke test
+        run: dotnet run --project benchmarks/Aer.Benchmarks.csproj --configuration Release
