@@ -48,17 +48,25 @@ public sealed record AerValue(AerKind Kind, object? Data)
         if (value is null) return Null;
         if (value is AerValue av) return av;
         if (value is AerTable table) return Table(table);
+        if (value is IDictionary<string, object?> map)
+            return Object(map.ToDictionary(k => k.Key, v => FromObject(v.Value)));
+
         return value switch
         {
             string s => String(s),
             bool b => Bool(b),
-            byte by => Int(by), short sh => Int(sh), int i => Int(i), long l => Int(l),
-            float f => Float(f), double d => Float(d), decimal m => Decimal(m),
-            DateTime dt => DateTime(new DateTimeOffset(dt)), DateTimeOffset dto => DateTime(dto),
-            TimeSpan ts => Duration(ts), byte[] bytes => Bytes(bytes),
-            IEnumerable<AerValue> values => Array(values.ToArray()),
+            byte by => Int(by),
+            short sh => Int(sh),
+            int i => Int(i),
+            long l => Int(l),
+            float f => Float(f),
+            double d => Float(d),
+            decimal m => Decimal(m),
+            DateTime dt => DateTime(new DateTimeOffset(dt)),
+            DateTimeOffset dto => DateTime(dto),
+            TimeSpan ts => Duration(ts),
+            byte[] bytes => Bytes(bytes),
             System.Collections.IEnumerable values => Array(values.Cast<object?>().Select(FromObject).ToArray()),
-            IDictionary<string, object?> map => Object(map.ToDictionary(k => k.Key, v => FromObject(v.Value))),
             _ => FromJson(JsonSerializer.SerializeToElement(value))
         };
     }
