@@ -31,7 +31,7 @@ static JsonElement RandomValue(Random random, int depth)
         0 => JsonSerializer.SerializeToElement((object?)null),
         1 => JsonSerializer.SerializeToElement(RandomScalar(random)),
         2 => JsonSerializer.SerializeToElement(Enumerable.Range(0, random.Next(0, 6)).Select(_ => RandomScalar(random)).ToArray()),
-        3 => JsonSerializer.SerializeToElement(Enumerable.Range(0, random.Next(0, 6)).ToDictionary(_ => "k" + random.Next(100), _ => RandomScalar(random))),
+        3 => RandomObject(random),
         4 => JsonSerializer.SerializeToElement(Enumerable.Range(0, random.Next(0, 5)).Select(_ => new Dictionary<string, object?>
         {
             ["id"] = random.Next(10000),
@@ -40,6 +40,15 @@ static JsonElement RandomValue(Random random, int depth)
         }).ToArray()),
         _ => RandomNested(random, depth + 1)
     };
+}
+
+static JsonElement RandomObject(Random random)
+{
+    var count = random.Next(0, 6);
+    var values = new Dictionary<string, object?>(StringComparer.Ordinal);
+    for (var i = 0; i < count; i++)
+        values["k" + i] = RandomScalar(random);
+    return JsonSerializer.SerializeToElement(values);
 }
 
 static JsonElement RandomNested(Random random, int depth) =>
