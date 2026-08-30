@@ -33,6 +33,9 @@ public static class AerParser
     private static AerValue ParseBlock(IReadOnlyList<string> lines, ref int index, int indent, int depth, AerParseOptions options)
     {
         if (depth > options.MaxDepth) throw new AerFormatException("AER007", $"Maximum nesting depth {options.MaxDepth} exceeded.");
+        if (index < lines.Count && CountIndent(lines[index]) == indent && lines[index].TrimStart().StartsWith("-:", StringComparison.Ordinal))
+            return ParseObjectArray(lines, ref index, indent, depth, options);
+
         var obj = new Dictionary<string, AerValue>(StringComparer.Ordinal);
         while (index < lines.Count)
         {
@@ -72,6 +75,28 @@ public static class AerParser
             else { EnsureNewKey(obj, keySpec, index + 1); obj[keySpec] = ParseScalar(rest, options); index++; }
         }
         return AerValue.Object(obj);
+    }
+
+    private static AerValue ParseObjectArray(IReadOnlyList<string> lines, ref int index, int indent, int depth, AerParseOptions options)
+    {
+        var values = new List<AerValue>();
+        while (index < lines.Count && CountIndent(lines[index]) == indent && lines[index].TrimStart().StartsWith("-:", StringComparison.Ordinal))
+        {
+            var line = lines[index].Trim();
+            var rest = line[2..].Trim();
+            index++;
+            if (values.Count >= options.MaxCollectionItems) throw new AerFormatException("AER006", "Array exceeds configured collection limit.");
+            if (rest.Length > 0)
+            {
+                values.Add(ParseScalar(rest, options));
+                continue;
+            }
+            if (index < lines.Count && CountIndent(lines[index]) > indent)
+                values.Add(ParseBlock(lines, ref index, CountIndent(lines[index]), depth + 1, options));
+            else
+                values.Add(AerValue.Object(new Dictionary<string, AerValue>()));
+        }
+        return AerValue.Array(values);
     }
 
     private static void EnsureNewKey(IReadOnlyDictionary<string, AerValue> obj, string key, int line) { if (obj.ContainsKey(key)) throw new AerFormatException("AER003", $"Duplicate key '{key}' on line {line}."); }
