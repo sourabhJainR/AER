@@ -1,0 +1,12 @@
+@aer 1
+
+query:"revenue forecast for APAC"
+retrieved[3]{id,title,score,source}:
+  D1,APAC revenue plan,0.97,planning
+  D2,Regional forecast,0.93,forecast
+  D3,Variance analysis,0.88,reporting
+
+answer_context:
+  currency:USD
+  horizon:2026Q4
+  confidence:0.91
