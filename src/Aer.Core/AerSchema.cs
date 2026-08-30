@@ -23,8 +23,8 @@ public sealed record AerSchema(string Name, IReadOnlyDictionary<string, AerField
                 continue;
             }
             if (!Matches(field.Type, v.Kind)) errors.Add($"{Name}.{field.Name}: expected {field.Type}, got {v.Kind}");
-            if (field.Min.HasValue && TryNumber(v, out var n) && n < field.Min.Value) errors.Add($"{Name}.{field.Name}: {n} < min {field.Min.Value}");
-            if (field.Max.HasValue && TryNumber(v, out n) && n > field.Max.Value) errors.Add($"{Name}.{field.Name}: {n} > max {field.Max.Value}");
+            if (field.Min.HasValue && TryNumber(v, out var lower) && lower < field.Min.Value) errors.Add($"{Name}.{field.Name}: {lower} < min {field.Min.Value}");
+            if (field.Max.HasValue && TryNumber(v, out var upper) && upper > field.Max.Value) errors.Add($"{Name}.{field.Name}: {upper} > max {field.Max.Value}");
         }
         return errors;
     }
