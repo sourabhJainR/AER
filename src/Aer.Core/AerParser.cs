@@ -9,6 +9,7 @@ public static class AerParser
     {
         if (text is null) throw new ArgumentNullException(nameof(text));
         options ??= new AerParseOptions();
+        options.Validate();
         if (Encoding.UTF8.GetByteCount(text) > options.MaxDocumentBytes)
             throw new AerFormatException("AER006", $"Document exceeds {options.MaxDocumentBytes} bytes.");
 
@@ -23,12 +24,18 @@ public static class AerParser
         while (index < meaningful.Count && meaningful[index].TrimStart().StartsWith('@'))
         {
             var p = meaningful[index].Trim().Split(' ', 2, StringSplitOptions.RemoveEmptyEntries);
-            if (p.Length == 2 && string.Equals(p[0], "@aer", StringComparison.OrdinalIgnoreCase) && int.TryParse(p[1], out var v)) version = v;
-            else if (p.Length == 2) directives[p[0][1..]] = p[1];
+            if (p.Length == 2 && string.Equals(p[0], "@aer", StringComparison.OrdinalIgnoreCase) && int.TryParse(p[1], NumberStyles.None, CultureInfo.InvariantCulture, out var v))
+            {
+                if (v != 1) throw new AerFormatException("AER001", $"Unsupported AER version {v}.");
+                version = v;
+            }
+            else if (p.Length == 2 && IsDirectiveName(p[0][1..])) directives[p[0][1..]] = p[1];
+            else throw new AerFormatException("AER002", $"Invalid directive on line {index + 1}: {meaningful[index]}");
             index++;
         }
         if (index >= meaningful.Count) throw new AerFormatException("AER002", "AER document contains no root value.");
         var root = ParseBlock(meaningful, ref index, CountIndent(meaningful[index]), 0, options);
+        if (index != meaningful.Count) throw new AerFormatException("AER002", $"Unexpected content on line {index + 1}.");
         return new AerDocument(version, root, directives);
     }
 
@@ -43,19 +50,20 @@ public static class AerParser
             if (currentIndent < indent) break;
             if (currentIndent > indent) throw new AerFormatException("AER002", $"Unexpected indentation on line {index + 1}.");
             var line = raw.Trim();
-            if (line.StartsWith('@')) { index++; continue; }
+            if (line.StartsWith('@')) throw new AerFormatException("AER002", $"Directive is only allowed before the root on line {index + 1}.");
             var colon = FindUnquoted(line, ':');
             if (colon < 1) throw new AerFormatException("AER002", $"Expected key:value on line {index + 1}: {line}");
-            var keySpec = line[..colon];
+            var keySpec = line[..colon].Trim();
             var rest = line[(colon + 1)..].Trim();
+            ValidateKey(keySpec, index + 1);
             if (TryParseTableHeader(keySpec, rest, out var tableName, out var count, out var columns))
             {
-                if (count > options.MaxCollectionItems) throw new AerFormatException("AER006", $"Table exceeds {options.MaxCollectionItems} rows.");
+                EnsureCollectionLimit(count, options, tableName);
                 index++;
                 var rows = new List<IReadOnlyList<AerValue>>(count);
                 for (var r = 0; r < count; r++)
                 {
-                    if (index >= lines.Count) throw new AerFormatException("AER004", "Unexpected end of table.");
+                    if (index >= lines.Count || CountIndent(lines[index]) <= indent) throw new AerFormatException("AER004", $"Unexpected end of table {tableName}.");
                     var rowLine = lines[index++].Trim();
                     var cells = SplitCsv(rowLine);
                     if (cells.Count != columns.Count) throw new AerFormatException("AER004", $"{tableName}: expected {columns.Count} cells but found {cells.Count}.");
@@ -66,7 +74,7 @@ public static class AerParser
             }
             if (TryParseCountedArray(keySpec, rest, out var arrayName, out var values))
             {
-                if (values.Count > options.MaxCollectionItems) throw new AerFormatException("AER006", $"Array exceeds {options.MaxCollectionItems} items.");
+                EnsureCollectionLimit(values.Count, options, arrayName);
                 obj[arrayName] = AerValue.Array(values.Select(v => ParseScalar(v, options)).ToArray()); index++; continue;
             }
             if (rest.Length == 0)
@@ -75,10 +83,22 @@ public static class AerParser
                 if (index < lines.Count && CountIndent(lines[index]) > indent) obj[keySpec] = ParseBlock(lines, ref index, CountIndent(lines[index]), depth + 1, options);
                 else obj[keySpec] = AerValue.Object(new Dictionary<string, AerValue>());
             }
-            else { obj[keySpec] = ParseScalar(rest, options); index++; }
+            else
+            {
+                if (obj.ContainsKey(keySpec)) throw new AerFormatException("AER003", $"Duplicate key '{keySpec}' on line {index + 1}.");
+                obj[keySpec] = ParseScalar(rest, options); index++;
+            }
         }
         return AerValue.Object(obj);
     }
+
+    private static void EnsureCollectionLimit(int count, AerParseOptions options, string name)
+    {
+        if (count < 0 || count > options.MaxCollectionItems) throw new AerFormatException("AER006", $"Collection '{name}' exceeds {options.MaxCollectionItems} items.");
+    }
+
+    private static bool IsDirectiveName(string name) => name.Length > 0 && name.All(c => char.IsLetterOrDigit(c) || c is '_' or '-');
+    private static void ValidateKey(string key, int line) { if (key.Length == 0 || key.Any(char.IsControl) || key.Contains('\t')) throw new AerFormatException("AER002", $"Invalid key on line {line}."); }
 
     private static bool TryParseCountedArray(string spec, string rest, out string name, out IReadOnlyList<string> values)
     {
@@ -97,7 +117,7 @@ public static class AerParser
         if (open <= 0 || mid < open || !spec.EndsWith('}') || rest.Length != 0) return false;
         if (!int.TryParse(spec[(open + 1)..mid], NumberStyles.None, CultureInfo.InvariantCulture, out count)) return false;
         name = spec[..open]; columns = SplitCsv(spec[(mid + 2)..^1]);
-        if (columns.Count == 0) throw new AerFormatException("AER004", $"{name}: table requires columns.");
+        if (columns.Count == 0 || columns.Any(string.IsNullOrWhiteSpace)) throw new AerFormatException("AER004", $"{name}: table requires non-empty columns.");
         return true;
     }
 
@@ -109,9 +129,21 @@ public static class AerParser
         if (text.Equals("true", StringComparison.OrdinalIgnoreCase)) return AerValue.Bool(true);
         if (text.Equals("false", StringComparison.OrdinalIgnoreCase)) return AerValue.Bool(false);
         if (text.StartsWith("@") && text.Length > 1) return AerValue.Reference(text[1..]);
-        if (text.StartsWith("b64\"") && text.EndsWith('"')) return AerValue.Bytes(Convert.FromBase64String(text[4..^1]));
-        if (text.StartsWith("dt\"") && text.EndsWith('"') && DateTimeOffset.TryParse(text[3..^1], CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dto)) return AerValue.DateTime(dto);
-        if (text.StartsWith("dur\"") && text.EndsWith('"') && TimeSpan.TryParse(text[5..^1], CultureInfo.InvariantCulture, out var duration)) return AerValue.Duration(duration);
+        if (text.StartsWith("b64\"", StringComparison.Ordinal))
+        {
+            if (!text.EndsWith('"')) throw new AerFormatException("AER005", "Invalid base64 scalar.");
+            try { return AerValue.Bytes(Convert.FromBase64String(text[4..^1])); } catch (FormatException) { throw new AerFormatException("AER005", "Invalid base64 scalar."); }
+        }
+        if (text.StartsWith("dt\"", StringComparison.Ordinal))
+        {
+            if (!text.EndsWith('"') || !DateTimeOffset.TryParse(text[3..^1], CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var dto)) throw new AerFormatException("AER005", "Invalid datetime scalar.");
+            return AerValue.DateTime(dto);
+        }
+        if (text.StartsWith("dur\"", StringComparison.Ordinal))
+        {
+            if (!text.EndsWith('"') || !TimeSpan.TryParse(text[5..^1], CultureInfo.InvariantCulture, out var duration)) throw new AerFormatException("AER005", "Invalid duration scalar.");
+            return AerValue.Duration(duration);
+        }
         if (text.Length >= 2 && text[0] == '"' && text[^1] == '"') return AerValue.String(Unescape(text[1..^1]));
         if (long.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var l)) return AerValue.Int(l);
         if (decimal.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var m)) return AerValue.Decimal(m);
@@ -129,6 +161,7 @@ public static class AerParser
             if (c == '"') quoted = !quoted;
             else if (c == ',' && !quoted) { result.Add(input[start..i].Trim()); start = i + 1; }
         }
+        if (quoted || escaped) throw new AerFormatException("AER005", "Unterminated quoted scalar.");
         result.Add(input[start..].Trim());
         return result;
     }
