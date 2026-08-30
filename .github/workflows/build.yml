@@ -15,8 +15,6 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 9.0.x
-          cache: true
-          cache-dependency-path: '**/packages.lock.json'
 
       - name: Restore core
         run: dotnet restore src/Aer.Core/Aer.Core.csproj
