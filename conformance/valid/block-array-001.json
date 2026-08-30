@@ -1,0 +1,10 @@
+{
+  "id": "block-array-001",
+  "text": "users:\n  -:\n    id: 1\n    name: Amit\n  -:\n    id: 2\n    name: Priya\n",
+  "canonical": {
+    "users": [
+      { "id": 1, "name": "Amit" },
+      { "id": 2, "name": "Priya" }
+    ]
+  }
+}
