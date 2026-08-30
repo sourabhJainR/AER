@@ -6,7 +6,10 @@ const int cases = 2000;
 
 for (var i = 0; i < cases; i++)
 {
-    var json = RandomValue(random, depth: 0);
+    // AER Text 1.x currently has an object-root grammar. Keep the property
+    // suite focused on values with a defined text representation while
+    // exercising nested arrays, objects and scalar edge cases.
+    var json = RandomObject(random);
     var value = AerValue.FromJson(json);
     var text = AER.Serialize(value);
     var textRoundTrip = AER.Deserialize(text).ToJsonElement();
@@ -31,7 +34,7 @@ static JsonElement RandomValue(Random random, int depth)
         0 => JsonSerializer.SerializeToElement((object?)null),
         1 => JsonSerializer.SerializeToElement(RandomScalar(random)),
         2 => JsonSerializer.SerializeToElement(Enumerable.Range(0, random.Next(0, 6)).Select(_ => RandomScalar(random)).ToArray()),
-        3 => RandomObject(random),
+        3 => RandomObject(random, depth + 1),
         4 => JsonSerializer.SerializeToElement(Enumerable.Range(0, random.Next(0, 5)).Select(_ => new Dictionary<string, object?>
         {
             ["id"] = random.Next(10000),
@@ -42,12 +45,12 @@ static JsonElement RandomValue(Random random, int depth)
     };
 }
 
-static JsonElement RandomObject(Random random)
+static JsonElement RandomObject(Random random, int depth = 0)
 {
-    var count = random.Next(0, 6);
+    var count = random.Next(1, 6);
     var values = new Dictionary<string, object?>(StringComparer.Ordinal);
     for (var i = 0; i < count; i++)
-        values["k" + i] = RandomScalar(random);
+        values["k" + i] = RandomValue(random, depth);
     return JsonSerializer.SerializeToElement(values);
 }
 
