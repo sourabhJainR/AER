@@ -1,31 +1,53 @@
-# Cross-language interoperability
+# AER Cross-Language Parity
 
-AER interoperability is driven by the canonical model and frozen AER-B vectors, not by copying one implementation.
+AER maintains independent implementations for .NET, Python, TypeScript and Go. They share the same canonical value kinds and AER-B v1 wire contract.
 
-## Python
+## Parity matrix
 
-```python
-from aer import dumps, loads, encode, decode
-v = {'name': 'Sourabh', 'age': 45, 'active': True}
-b = encode(v)
-assert decode(b).data['name'].data == 'Sourabh'
+| Capability | .NET | Python | TypeScript | Go |
+|---|---|---|---|---|
+| Scalars | Yes | Yes | Yes | Yes |
+| Nested objects | Yes | Yes | Yes | Yes |
+| Arrays | Yes | Yes | Yes | Yes |
+| Tables | Yes | Yes | Yes | Yes |
+| References | Yes | Yes | Yes | Yes |
+| Typed date/time | Yes | Yes | Yes | Yes |
+| Typed duration | Yes | Yes | Yes | Yes |
+| AER-H text writer | Yes | Yes | Yes | Yes |
+| AER-H text parser | Yes | Yes | Yes | Yes |
+| Schema validation | Yes | Yes | Yes | Yes |
+| Patch operations | Yes | Yes | Yes | Yes |
+| AER-B v1 encode/decode | Yes | Yes | Yes | Yes |
+| AERF streaming frames | Yes | Yes | Yes | Yes |
+| Frozen binary vectors | Yes | Yes | Yes | Yes |
+| Property tests | Yes | Yes | Yes | Yes |
+| Native fuzz entry point | Planned/CI fuzz job | Property/fuzz harness | Property/fuzz harness | Go fuzz test |
+
+## Wire contract
+
+AER-B v1 is:
+
+```text
+4 bytes: AERB
+1 byte : version 1
+N bytes: tagged value payload
 ```
 
-## TypeScript
+AERF frames are:
 
-```ts
-import { dumps, loads, encode, decode } from '@aer-format/core';
-const v = { name: 'Sourabh', age: 45, active: true };
-const b = encode(v);
-const roundTrip = decode(b);
+```text
+4 bytes: AERF
+1 byte : version 1
+4 bytes: payload length (uint32 little-endian)
+N bytes: one complete AER-B payload
 ```
 
-## Go
+## Testing strategy
 
-```go
-v := aer.From(map[string]aer.Value{"name": aer.From("Sourabh"), "age": aer.From(45)})
-b := aer.Encode(v)
-_, err := aer.Decode(b)
-```
+Every implementation must pass frozen AER-B vectors, table/text round trips, schema validation, patch mutations, streaming frames, deterministic property tests, and malformed/truncated-input tests.
 
-The conformance rule is byte-for-byte equality for known AER-B fixtures and semantic equality for decoded values. Implementations may use different APIs internally.
+The authoritative frozen vectors live under `conformance/binary/v1.json`. A wire-format change requires a new versioned specification and vector set; vectors must never be silently regenerated in place.
+
+## Release parity gate
+
+Before an AER release is called interoperable, each implementation must be able to produce AER-B and decode payloads produced by the other implementations. The resulting canonical values must be semantically identical and known vectors must remain byte-for-byte stable.
