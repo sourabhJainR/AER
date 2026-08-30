@@ -1,0 +1,40 @@
+{
+  "name": "aer-language-support",
+  "displayName": "AER Language Support",
+  "description": "AER format support with validation, formatting and JSON conversion.",
+  "version": "0.1.0",
+  "publisher": "aer-format",
+  "engines": { "vscode": ">=1.90.0" },
+  "categories": ["Programming Languages", "Formatters"],
+  "activationEvents": ["onLanguage:aer"],
+  "contributes": {
+    "languages": [{
+      "id": "aer",
+      "aliases": ["AER", "aer"],
+      "extensions": [".aer"],
+      "configuration": "./language-configuration.json"
+    }],
+    "commands": [
+      { "command": "aer.format", "title": "AER: Format Document" },
+      { "command": "aer.validate", "title": "AER: Validate Document" },
+      { "command": "aer.toJson", "title": "AER: Convert to JSON" },
+      { "command": "aer.toAer", "title": "AER: Convert JSON to AER" },
+      { "command": "aer.benchmark", "title": "AER: Show Benchmark" }
+    ],
+    "configuration": {
+      "title": "AER",
+      "properties": {
+        "aer.cliPath": {
+          "type": "string",
+          "default": "aer",
+          "description": "Path to the AER CLI executable."
+        },
+        "aer.formatOnSave": {
+          "type": "boolean",
+          "default": false,
+          "description": "Format AER documents on save."
+        }
+      }
+    }
+  }
+}
