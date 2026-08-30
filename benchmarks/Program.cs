@@ -2,7 +2,7 @@ using System.Diagnostics;
 using System.Text.Json;
 using Aer;
 
-var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../.."));
+var root = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../.."));
 var sample = Path.Combine(root, "examples", "benchmark", "sample.json");
 var json = File.ReadAllText(sample);
 var element = JsonSerializer.Deserialize<JsonElement>(json);
@@ -30,10 +30,5 @@ static void Measure(string name, int iterations, Action action)
     var sw = Stopwatch.StartNew();
     for (var i = 0; i < iterations; i++) action();
     sw.Stop();
-    Console.WriteLine($"{name,-12} {sw.Elapsed.TotalMilliseconds,10:F2} ms total  {sw.Elapsed.TotalNanoseconds() / iterations,10:F0} ns/op");
-}
-
-static class StopwatchExtensions
-{
-    public static double TotalNanoseconds(this TimeSpan value) => value.TotalMilliseconds * 1_000_000d;
+    Console.WriteLine($"{name,-12} {sw.Elapsed.TotalMilliseconds,10:F2} ms total  {sw.Elapsed.TotalNanoseconds / iterations,10:F0} ns/op");
 }
