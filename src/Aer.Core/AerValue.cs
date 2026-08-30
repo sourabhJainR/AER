@@ -18,6 +18,7 @@ public sealed record AerValue(AerKind Kind, object? Data)
     public static AerValue Duration(TimeSpan value) => new(AerKind.Duration, value);
     public static AerValue Array(IReadOnlyList<AerValue> values) => new(AerKind.Array, values);
     public static AerValue Object(IReadOnlyDictionary<string, AerValue> values) => new(AerKind.Object, values);
+    public static AerValue Table(AerTable table) => new(AerKind.Table, table.Validate());
     public static AerValue Reference(string id) => new(AerKind.Reference, id);
 
     public JsonElement ToJsonElement(JsonSerializerOptions? options = null)
@@ -36,7 +37,7 @@ public sealed record AerValue(AerKind Kind, object? Data)
             AerKind.Reference => new Dictionary<string, object?> { ["$ref"] = Data },
             AerKind.Array => ((IReadOnlyList<AerValue>)Data!).Select(v => v.ToJsonElement(options)).ToArray(),
             AerKind.Object => ((IReadOnlyDictionary<string, AerValue>)Data!).ToDictionary(k => k.Key, v => v.Value.ToJsonElement(options)),
-            AerKind.Table => Data,
+            AerKind.Table => ((AerTable)Data!).Rows.Select(r => r.Select(v => v.ToJsonElement(options)).ToArray()).ToArray(),
             _ => throw new InvalidOperationException($"Unsupported kind {Kind}")
         };
         return JsonSerializer.SerializeToElement(value, options);
@@ -45,23 +46,18 @@ public sealed record AerValue(AerKind Kind, object? Data)
     public static AerValue FromObject(object? value)
     {
         if (value is null) return Null;
+        if (value is AerValue av) return av;
+        if (value is AerTable table) return Table(table);
         return value switch
         {
-            AerValue v => v,
             string s => String(s),
             bool b => Bool(b),
-            byte by => Int(by),
-            short sh => Int(sh),
-            int i => Int(i),
-            long l => Int(l),
-            float f => Float(f),
-            double d => Float(d),
-            decimal m => Decimal(m),
-            DateTime dt => DateTime(new DateTimeOffset(dt)),
-            DateTimeOffset dto => DateTime(dto),
-            TimeSpan ts => Duration(ts),
-            byte[] bytes => Bytes(bytes),
-            IEnumerable<object?> items => Array(items.Select(FromObject).ToArray()),
+            byte by => Int(by), short sh => Int(sh), int i => Int(i), long l => Int(l),
+            float f => Float(f), double d => Float(d), decimal m => Decimal(m),
+            DateTime dt => DateTime(new DateTimeOffset(dt)), DateTimeOffset dto => DateTime(dto),
+            TimeSpan ts => Duration(ts), byte[] bytes => Bytes(bytes),
+            IEnumerable<AerValue> values => Array(values.ToArray()),
+            System.Collections.IEnumerable values => Array(values.Cast<object?>().Select(FromObject).ToArray()),
             IDictionary<string, object?> map => Object(map.ToDictionary(k => k.Key, v => FromObject(v.Value))),
             _ => FromJson(JsonSerializer.SerializeToElement(value))
         };
