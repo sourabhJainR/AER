@@ -33,7 +33,7 @@ var negative = new (string Id, Action Test)[]
 {
     ("duplicate-key", () => AER.Deserialize("a: 1\na: 2")),
     ("invalid-base64", () => AER.Deserialize("data: b64\"not-base64!\"")),
-    ("unterminated-string", () => AER.Deserialize("name: \"unterminated")),
+    ("array-count-mismatch", () => AER.Deserialize("items[2]: 1")),
     ("unsupported-version", () => AER.Deserialize("@aer 99\na: 1")),
     ("binary-trailing-bytes", () => AerBinary.Decode(AerBinary.Encode(AerValue.Int(1)).Concat(new byte[] { 0xFF }).ToArray())),
     ("binary-invalid-bool", () => AerBinary.Decode(new byte[] { (byte)'A', (byte)'E', (byte)'R', (byte)'B', 1, (byte)AerKind.Bool, 2 })),
