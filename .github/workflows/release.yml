@@ -22,7 +22,7 @@ jobs:
         env: { NUGET_API_KEY: '${{ secrets.NUGET_API_KEY }}' }
       - name: Build npm
         working-directory: implementations/typescript
-        run: npm ci && npm run build && npm publish --access public
+        run: npm install && npm run build && npm publish --access public
         env: { NODE_AUTH_TOKEN: '${{ secrets.NPM_TOKEN }}' }
       - name: Build PyPI
         working-directory: implementations/python
