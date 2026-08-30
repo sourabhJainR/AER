@@ -44,6 +44,8 @@ Do not benchmark only a synthetic uniform table. AER's adaptive behavior must be
 
 Use exact tokenizer adapters when available. Never present a character or whitespace heuristic as an exact token count.
 
+The CI benchmark currently executes an exact `o200k_base` measurement through the pinned `tiktoken` adapter. Additional tokenizer adapters can be added without changing AER core.
+
 Report:
 
 - input tokens;
@@ -102,8 +104,6 @@ For credible comparisons:
 6. Store raw results and an aggregate report.
 7. Compare paired tasks, not unrelated averages.
 
-External benchmark practice increasingly emphasizes like-for-like configurations, task-level outcome, cost and token measurement; AER should follow the same discipline. citeturn283250search1turn283250search2
-
 ## Baseline and promotion policy
 
 A change to AER's encoder, optimizer, grammar or AI profile must compare against a frozen baseline.
@@ -135,11 +135,11 @@ Repeated encode/decode measurements over the full fixed corpus.
 
 ### Tier 2: exact tokenizer evaluation
 
-Run with approved tokenizer adapters and report per-tokenizer results.
+Run with approved tokenizer adapters and report per-tokenizer results. AER CI currently covers `o200k_base` with a pinned tiktoken dependency.
 
 ### Tier 3: model utility evaluation
 
-Run the same engineering or MCP tasks with controlled model settings and collect quality/cost/latency metrics.
+Run the same engineering or MCP tasks with controlled model settings and collect quality/cost/latency metrics. This remains the main evidence gap before strong AI effectiveness claims.
 
 ### Tier 4: external reproduction
 
