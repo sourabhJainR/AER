@@ -1,0 +1,1 @@
+{"status":"success","users":[{"id":101,"name":"Amit","role":"Engineer","level":4},{"id":102,"name":"Priya","role":"Manager","level":5},{"id":103,"name":"Rahul","role":"Engineer","level":3},{"id":104,"name":"Neha","role":"Director","level":6}],"metrics":{"latency_ms":42.7,"confidence":0.92,"region":"ap-south-1"}}
