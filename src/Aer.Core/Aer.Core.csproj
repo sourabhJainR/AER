@@ -7,5 +7,21 @@
     <NoWarn>$(NoWarn);1591</NoWarn>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <RootNamespace>Aer</RootNamespace>
+    <PackageId>AER</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>sourabhJainR</Authors>
+    <Description>Deterministic, compact, AI-friendly data representation with text, binary and streaming codecs.</Description>
+    <PackageTags>aer;serialization;data-format;ai;llm;binary;streaming</PackageTags>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/sourabhJainR/AER</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+    <Deterministic>true</Deterministic>
+    <DebugType>embedded</DebugType>
   </PropertyGroup>
+  <ItemGroup>
+    <None Include="../../README.md" Pack="true" PackagePath="README.md" />
+  </ItemGroup>
 </Project>
