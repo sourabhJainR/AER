@@ -1,0 +1,1 @@
+This incremental release track adds language implementations, frozen binary conformance, AI tokenizer benchmarks and package publication workflows. Full AER 1.0 still requires advanced feature parity and fuzz/property testing across languages.
