@@ -40,6 +40,14 @@ jobs:
       - name: Run AI effectiveness benchmark
         run: dotnet run --project benchmarks/effectiveness/Aer.Effectiveness.csproj --configuration Release
 
+      - name: Publish benchmark report
+        uses: actions/upload-artifact@v4
+        with:
+          name: aer-ai-effectiveness-report
+          path: artifacts/benchmarks/ai-effectiveness.json
+          if-no-files-found: error
+          retention-days: 30
+
       - name: Pack NuGet package
         run: dotnet pack src/Aer.Core/Aer.Core.csproj --configuration Release --no-build --output ./artifacts
 
