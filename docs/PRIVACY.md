@@ -1,0 +1,1 @@
+AER is a serialization library and does not require telemetry or remote services. Applications decide where encoded data is sent or stored. Fuzz and benchmark tools operate locally on supplied fixtures.
