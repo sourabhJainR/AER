@@ -10,7 +10,7 @@ public static class AerStream
     public static byte[] EncodeFrame(AerValue value)
     {
         var payload = AerBinary.Encode(value);
-        if (payload.Length > uint.MaxValue - 9) throw new InvalidOperationException("AER frame payload is too large.");
+        if (payload.Length > int.MaxValue - 9) throw new InvalidOperationException("AER frame payload is too large.");
         var frame = new byte[9 + payload.Length];
         Magic.CopyTo(frame, 0);
         frame[4] = 1;
