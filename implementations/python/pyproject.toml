@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "aer-format"
+version = "0.1.0"
+description = "Adaptive Efficient Representation reference implementation"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "AER contributors" }]
+keywords = ["aer", "serialization", "llm", "mcp", "data-format"]
+
+[project.urls]
+Homepage = "https://github.com/sourabhJainR/AER"
+Repository = "https://github.com/sourabhJainR/AER"
+
+[tool.hatch.build.targets.wheel]
+packages = ["aer"]
