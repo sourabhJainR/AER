@@ -1,0 +1,1 @@
+Track C covers independent language implementations, frozen AER-B vectors, tokenizer-aware AI benchmarks and package publication automation. Track D remains advanced feature parity and fuzz/property testing before AER 1.0.
