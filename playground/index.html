@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AER Playground</title>
+  <style>body{font-family:system-ui,sans-serif;margin:24px;max-width:1200px}textarea{width:100%;min-height:320px;font:14px ui-monospace,monospace}button{padding:8px 14px;margin:8px 0}</style>
+</head>
+<body>
+<h1>AER Playground</h1>
+<p>Paste JSON, then convert it into the core AER table-oriented text style for quick experimentation.</p>
+<textarea id="json">{"employees":[{"id":101,"name":"Amit","role":"Engineer"},{"id":102,"name":"Priya","role":"Manager"}]}</textarea>
+<br><button id="convert">Convert</button>
+<textarea id="aer" readonly></textarea>
+<script>
+function scalar(v){
+  if(v===null)return '-';
+  if(typeof v==='boolean')return String(v);
+  if(typeof v==='number')return String(v);
+  if(typeof v==='string')return /[,\n:\"{}\[\]]/.test(v)?JSON.stringify(v):v;
+  return JSON.stringify(v);
+}
+function encodeObject(o,indent=''){
+  const lines=[];
+  for(const [k,v] of Object.entries(o)){
+    if(Array.isArray(v) && v.length && v.every(x=>x&&typeof x==='object'&&!Array.isArray(x))){
+      const keys=[...new Set(v.flatMap(x=>Object.keys(x)))];
+      lines.push(`${indent}${k}[${v.length}]{${keys.join(',')}}:`);
+      for(const row of v){lines.push(`${indent}  ${keys.map(x=>scalar(row[x]??null)).join(',')}`)}
+    }else if(v && typeof v==='object'&&!Array.isArray(v)){
+      lines.push(`${indent}${k}:`); lines.push(...encodeObject(v,indent+'  '));
+    }else if(Array.isArray(v)){
+      lines.push(`${indent}${k}[${v.length}]:${v.map(scalar).join(',')}`);
+    }else{
+      lines.push(`${indent}${k}:${scalar(v)}`);
+    }
+  }
+  return lines;
+}
+document.getElementById('convert').onclick=()=>{
+  try{document.getElementById('aer').value=encodeObject(JSON.parse(document.getElementById('json').value)).join('\n')+'\n';}
+  catch(e){document.getElementById('aer').value='Error: '+e.message;}
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "id": "basic-object-001",
+  "text": "name:Sourabh\nage:45\nactive:true\nscore:97.5\n",
+  "canonical": {
+    "name": "Sourabh",
+    "age": 45,
+    "active": true,
+    "score": 97.5
+  }
+}

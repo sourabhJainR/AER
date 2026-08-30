@@ -1,0 +1,11 @@
+{
+  "id": "table-001",
+  "text": "employees[3]{id,name,role}:\n  101,Amit,Engineer\n  102,Priya,Manager\n  103,Rahul,Engineer\n",
+  "canonical": {
+    "employees": [
+      {"id": 101, "name": "Amit", "role": "Engineer"},
+      {"id": 102, "name": "Priya", "role": "Manager"},
+      {"id": 103, "name": "Rahul", "role": "Engineer"}
+    ]
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "employees": [
+    {"id":101,"name":"Amit","role":"Engineer","level":4,"active":true},
+    {"id":102,"name":"Priya","role":"Manager","level":5,"active":true},
+    {"id":103,"name":"Rahul","role":"Engineer","level":3,"active":false},
+    {"id":104,"name":"Neha","role":"Director","level":6,"active":true}
+  ]
+}

@@ -16,6 +16,187 @@ AER is designed as one logical model with multiple physical representations:
 
 The repository is Apache-2.0 licensed.
 
+## Why AER
+
+AER is designed for a gap between today's formats:
+
+```text
+                  Human readable
+                       ^
+                       |
+                 YAML / XML / MD
+                       |
+                       |
+        JSON ----------+---------- TOON
+                       |
+                       |
+              AER Text / AER AI
+                       |
+                       v
+                 AER Binary
+                       |
+              Protobuf / MsgPack / CBOR
+                       |
+                  Binary efficient
+```
+
+The goal is not to claim that AER is universally better than every existing format. Each established format has workloads where it is the better choice. AER's main advantage is that it brings several capabilities together under one canonical model instead of making applications maintain separate representations for human users, APIs, LLMs and binary services.
+
+## AER vs popular data formats
+
+| Capability | JSON | Protobuf | MessagePack | CBOR | XML | YAML | CSV | Markdown | TOON | AER |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Human-readable | Yes | No | No | No | Yes | Yes | Yes | Yes | Yes | Yes |
+| Compact text | Medium | N/A | N/A | N/A | Low | Medium | High | Low | High | Target: High |
+| Compact binary | No | Yes | Yes | Yes | No | No | No | No | No | Yes |
+| Strong typing | Limited | Yes | Limited | Yes | Limited | Limited | No | No | Limited | Yes |
+| Optional schema | Yes | Usually schema-first | Yes | Yes | Yes | Yes | No | No | Yes | Yes |
+| Repeated-record table form | No | Indirect | No | No | No | No | Yes | No | Yes | Yes |
+| Native references | Convention | IDs/convention | Convention | Tags/convention | Yes | Convention | No | No | Limited | Yes |
+| Semantic metadata | Limited | Limited | Limited | Tags | Attributes | Limited | No | Text | Limited | Optional/native |
+| Deterministic grammar | Yes | Yes | Yes | Yes | Yes | No | Yes | No | Yes | Yes |
+| Streaming | Yes | Yes | Yes | Yes | Yes | Partial | Yes | No | Yes | Yes |
+| AI-specific profile | No | No | No | No | No | No | No | No | Yes | Yes |
+| Adaptive representation | No | No | No | No | No | No | No | No | Limited | Yes |
+| Text + AI + binary from one model | No | Partial | Partial | Partial | No | No | No | No | Mostly text | Yes |
+
+### JSON vs AER
+
+JSON remains an excellent general-purpose interchange format because of its huge ecosystem and broad language support. AER targets situations where repeated structure, AI context and multiple representation forms matter.
+
+JSON:
+
+```json
+{
+  "employees": [
+    {"id":101,"name":"Amit","role":"Engineer","level":4},
+    {"id":102,"name":"Priya","role":"Manager","level":5},
+    {"id":103,"name":"Rahul","role":"Engineer","level":3}
+  ]
+}
+```
+
+AER:
+
+```text
+employees[3]{id,name,role,level}:
+  101,Amit,Engineer,4
+  102,Priya,Manager,5
+  103,Rahul,Engineer,3
+```
+
+AER removes repeated field-name and object punctuation overhead in uniform record sets while keeping the shape explicit. The expected benefits are smaller text payloads, fewer repeated tokens for AI workloads and simpler visual inspection. Those savings must be measured against the exact payload and tokenizer.
+
+### Protobuf vs AER
+
+Protobuf is a mature schema-first binary serialization system and is an excellent choice for established RPC contracts. AER is aimed at a wider boundary.
+
+| Area | Protobuf | AER |
+|---|---|---|
+| Primary strength | Efficient schema-driven binary RPC | One canonical model across text, AI and binary |
+| Schema | `.proto`, normally required | Optional AER Schema |
+| Human editing | Poor | Strong in AER Text |
+| LLM representation | Usually requires another encoding | AER-AI is a first-class profile |
+| Adaptive table layout | Not a core concept | Core optimizer feature |
+| Semantic hints | Usually external conventions | Units/meaning can be schema metadata |
+| JSON coexistence | Generated gateway patterns | JSON adapter is part of the design |
+| Binary performance | Proven ecosystem | Must be validated by benchmark |
+
+AER's advantage over Protobuf is therefore primarily the unified representation model, not an unproven claim of lower binary size or faster serialization.
+
+### MessagePack / CBOR vs AER
+
+MessagePack and CBOR are strong compact binary formats. AER adds a human-readable representation, AI-oriented profile, optional semantic schema and adaptive text layout around the same logical model.
+
+```text
+AER model
+   +--> Text   -> human/debug/config
+   +--> AI     -> LLM/MCP context
+   +--> Binary -> service transport
+```
+
+### XML vs AER
+
+XML has mature schemas, namespaces and extensive enterprise/document tooling. AER deliberately keeps the data grammar smaller and focuses on structured data transport rather than document markup.
+
+### YAML vs AER
+
+YAML is widely used for configuration and is pleasant for humans. AER is intentionally narrower: deterministic data, explicit types, table encoding and a direct binary path. YAML remains a sensible choice where its ecosystem is the requirement.
+
+### CSV vs AER
+
+CSV can be very compact for simple flat tables. AER table mode targets repeated records while preserving typed values, nesting and references. For a two-dimensional data export with no additional structure, CSV may remain simpler.
+
+### Markdown vs AER
+
+Markdown is a prose/document format, not a strict serialization format. AER is designed for data that must be validated, parsed and transported.
+
+### TOON vs AER
+
+TOON is the closest comparison for LLM-oriented structured text because it also uses compact tabular forms. AER extends the same problem space with a canonical typed model, optional schemas, semantic metadata, references, adaptive optimization and a binary representation. AER should be benchmarked directly against TOON for token count, generated validity and model task performance before making quantitative superiority claims.
+
+## What advantage is AER bringing?
+
+### 1. One data model, many representations
+
+The most important architectural advantage is avoiding separate data contracts for JSON APIs, LLM prompts and internal binary traffic:
+
+```text
+                Canonical AER Model
+                        |
+          +-------------+-------------+
+          |             |             |
+      AER Text       AER AI        AER Binary
+      humans/API     LLM/MCP       services
+```
+
+### 2. Adaptive optimization
+
+Applications do not have to decide how to encode every repeated structure. The optimizer can recognize uniform object collections and switch them to table form, while leaving irregular structures hierarchical.
+
+### 3. AI-aware without making the core model AI-specific
+
+AER-AI can remove unnecessary structural repetition for LLM context while schema metadata can supply meaning, units and validation only when useful.
+
+### 4. Stronger type model than JSON
+
+AER can represent integer, float, decimal, bytes, date/time and duration distinctly. This avoids forcing the consumer to infer important semantic types from strings.
+
+### 5. Human readability with binary escape hatch
+
+AER Text is intended to be readable in logs, configuration files, test fixtures and debugging sessions. AER Binary can be used where source readability is not needed.
+
+### 6. Designed for MCP and API boundaries
+
+AER can be introduced without replacing JSON. A server can negotiate AER for clients that support it and continue returning JSON to legacy clients.
+
+### 7. Lossless optimization
+
+The optimizer changes representation, not application meaning. The canonical model remains the source of truth.
+
+## When AER should be preferred
+
+AER is especially attractive for:
+
+- MCP tool and resource responses with repetitive records.
+- LLM retrieval context containing structured business data.
+- APIs returning large arrays of uniform objects.
+- Human-edited configuration that still needs strict validation.
+- Systems that currently maintain separate JSON, LLM and binary DTO representations.
+- Event data requiring readable fixtures and compact service transport.
+
+## When existing formats may be better
+
+AER should not replace an established format simply for the sake of replacing it:
+
+- Choose Protobuf for mature schema-first binary RPC ecosystems.
+- Choose MessagePack or CBOR where standardized compact binary payloads are the main requirement.
+- Choose CSV for simple flat rectangular data.
+- Choose XML where XML schema, namespace or document ecosystem features are required.
+- Choose YAML for existing YAML configuration workflows.
+- Choose Markdown for prose and documentation.
+- Choose JSON when maximum interoperability and ecosystem maturity are the dominant requirements.
+
 ## Design goals
 
 AER is optimized for five things at the same time:
@@ -26,7 +207,7 @@ AER is optimized for five things at the same time:
 4. Efficient LLM token usage.
 5. A clean path from human-readable data to binary transport.
 
-AER is not intended to claim that every workload is smaller or faster than every competing format. Performance must be established with representative benchmarks. The project therefore treats JSON, MessagePack, Protobuf, CBOR, YAML, XML and TOON as comparison points rather than assumptions.
+AER is not intended to claim that every workload is smaller or faster than every competing format. Performance must be established with representative benchmarks. The project therefore treats JSON, MessagePack, Protobuf, CBOR, YAML, XML, CSV and TOON as comparison points rather than assumptions.
 
 ## Quick start
 
@@ -390,6 +571,7 @@ Create representative payloads from real systems and compare:
 - CBOR
 - YAML
 - XML where relevant
+- CSV where relevant
 - TOON for LLM-oriented structured data
 - AER text
 - AER AI
