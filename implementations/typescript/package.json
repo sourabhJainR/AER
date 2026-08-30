@@ -9,7 +9,7 @@
   "files": ["dist"],
   "license": "Apache-2.0",
   "repository": { "type": "git", "url": "https://github.com/sourabhJainR/AER.git", "directory": "implementations/typescript" },
-  "scripts": { "build": "tsc -p tsconfig.json", "test": "npm run build && node test/test.mjs && node test/advanced.mjs" },
+  "scripts": { "build": "tsc -p tsconfig.json", "test": "npm run build && node test/test.mjs && node test/advanced.mjs && node test/vector-advanced.mjs" },
   "engines": { "node": ">=20" },
   "devDependencies": { "typescript": "^5.0.0", "@types/node": "^22.0.0" }
 }
