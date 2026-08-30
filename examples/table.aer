@@ -1,0 +1,7 @@
+@aer 1
+
+employees[4]{id,name,role,level}:
+  101,Amit,Engineer,4
+  102,Priya,Manager,5
+  103,Rahul,Engineer,3
+  104,Neha,Director,6
