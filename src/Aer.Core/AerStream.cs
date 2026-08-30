@@ -18,8 +18,9 @@ public static class AerStream
         return frame;
     }
 
-    public static IEnumerable<AerValue> DecodeFrames(ReadOnlySpan<byte> data, int maxFrameBytes = 16 * 1024 * 1024)
+    public static IReadOnlyList<AerValue> DecodeFrames(ReadOnlySpan<byte> data, int maxFrameBytes = 16 * 1024 * 1024)
     {
+        var results = new List<AerValue>();
         var offset = 0;
         while (offset < data.Length)
         {
@@ -29,8 +30,9 @@ public static class AerStream
             var length = BinaryPrimitives.ReadUInt32LittleEndian(data.Slice(offset + 5, 4));
             if (length > maxFrameBytes) throw new AerFormatException("AER006", "AER frame exceeds configured size limit.");
             if (data.Length - offset - 9 < length) throw new AerFormatException("AER008", "Truncated AER frame payload.");
-            yield return AerBinary.Decode(data.Slice(offset + 9, checked((int)length)));
+            results.Add(AerBinary.Decode(data.Slice(offset + 9, checked((int)length))));
             offset += 9 + checked((int)length);
         }
+        return results;
     }
 }
