@@ -14,18 +14,23 @@ class Field:
 class Schema:
     name: str
     fields: dict[str, Field]
+
     def validate(self, value: AerValue) -> list[str]:
         if value.kind != AerKind.OBJECT:
             return [f'{self.name}: expected object']
-        data=value.data; errors=[]
-        for n,f in self.fields.items():
-            if n not in data:
-                if f.required: errors.append(f'{n}: required')
+        data = value.data
+        errors: list[str] = []
+        for name, field in self.fields.items():
+            if name not in data:
+                if field.required:
+                    errors.append(f'{name}: required')
                 continue
-            x=data[n]
-            if x.kind != f.kind and f.kind != AerKind.ANY if False else False:
-                errors.append(f'{n}: expected {f.kind.name}')
+            current = data[name]
+            if current.kind != field.kind:
+                errors.append(f'{name}: expected {field.kind.name}')
                 continue
-            if f.minimum is not None and isinstance(x.data,(int,float)) and x.data < f.minimum: errors.append(f'{n}: below minimum')
-            if f.maximum is not None and isinstance(x.data,(int,float)) and x.data > f.maximum: errors.append(f'{n}: above maximum')
+            if field.minimum is not None and isinstance(current.data, (int, float)) and current.data < field.minimum:
+                errors.append(f'{name}: below minimum')
+            if field.maximum is not None and isinstance(current.data, (int, float)) and current.data > field.maximum:
+                errors.append(f'{name}: above maximum')
         return errors
