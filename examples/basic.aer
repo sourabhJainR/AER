@@ -1,0 +1,7 @@
+@aer 1
+
+name:Sourabh
+age:45
+active:true
+score:97.5
+skills[3]:AI,C#,.NET
