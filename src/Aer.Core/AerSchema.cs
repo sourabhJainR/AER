@@ -40,7 +40,7 @@ public sealed record AerSchema(string Name, IReadOnlyDictionary<string, AerField
         AerTypeKind.Bytes => actual == AerKind.Bytes,
         AerTypeKind.DateTime => actual == AerKind.DateTime,
         AerTypeKind.Duration => actual == AerKind.Duration,
-        AerTypeKindKind.Array => actual == AerKind.Array,
+        AerTypeKind.Array => actual == AerKind.Array,
         AerTypeKind.Object => actual == AerKind.Object,
         AerTypeKind.Table => actual == AerKind.Table,
         AerTypeKind.Reference => actual == AerKind.Reference,
