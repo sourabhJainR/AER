@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -28,8 +31,14 @@ jobs:
       - name: Build CLI
         run: dotnet build src/Aer.Cli/Aer.Cli.csproj --configuration Release
 
-      - name: Run conformance suite
+      - name: Run conformance and negative-input suite
         run: dotnet run --project tests/Aer.Conformance/Aer.Conformance.csproj --configuration Release
 
       - name: Run benchmark smoke test
         run: dotnet run --project benchmarks/Aer.Benchmarks.csproj --configuration Release
+
+      - name: Pack NuGet package
+        run: dotnet pack src/Aer.Core/Aer.Core.csproj --configuration Release --no-build --output ./artifacts
+
+      - name: Verify package exists
+        run: test -s ./artifacts/AER.0.1.0.nupkg

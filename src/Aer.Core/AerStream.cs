@@ -10,6 +10,7 @@ public static class AerStream
     public static byte[] EncodeFrame(AerValue value)
     {
         var payload = AerBinary.Encode(value);
+        if (payload.Length > int.MaxValue - 9) throw new InvalidOperationException("AER frame payload is too large.");
         var frame = new byte[9 + payload.Length];
         Magic.CopyTo(frame, 0);
         frame[4] = 1;
@@ -18,8 +19,13 @@ public static class AerStream
         return frame;
     }
 
-    public static IReadOnlyList<AerValue> DecodeFrames(ReadOnlySpan<byte> data, int maxFrameBytes = 16 * 1024 * 1024)
+    public static IReadOnlyList<AerValue> DecodeFrames(ReadOnlySpan<byte> data, int maxFrameBytes = 16 * 1024 * 1024, AerBinaryOptions? binaryOptions = null)
     {
+        if (maxFrameBytes <= 0) throw new ArgumentOutOfRangeException(nameof(maxFrameBytes));
+        binaryOptions ??= new AerBinaryOptions(MaxPayloadBytes: maxFrameBytes);
+        binaryOptions.Validate();
+        if (binaryOptions.MaxPayloadBytes > maxFrameBytes) binaryOptions = binaryOptions with { MaxPayloadBytes = maxFrameBytes };
+
         var results = new List<AerValue>();
         var offset = 0;
         while (offset < data.Length)
@@ -28,10 +34,11 @@ public static class AerStream
             if (!data.Slice(offset, 4).SequenceEqual(Magic)) throw new AerFormatException("AER002", "Invalid AER frame magic.");
             if (data[offset + 4] != 1) throw new AerFormatException("AER009", "Unsupported AER frame version.");
             var length = BinaryPrimitives.ReadUInt32LittleEndian(data.Slice(offset + 5, 4));
-            if (length > maxFrameBytes) throw new AerFormatException("AER006", "AER frame exceeds configured size limit.");
-            if (data.Length - offset - 9 < length) throw new AerFormatException("AER008", "Truncated AER frame payload.");
-            results.Add(AerBinary.Decode(data.Slice(offset + 9, checked((int)length))));
-            offset += 9 + checked((int)length);
+            if (length > (uint)maxFrameBytes) throw new AerFormatException("AER006", "AER frame exceeds configured size limit.");
+            var frameLength = checked(9 + (int)length);
+            if (data.Length - offset < frameLength) throw new AerFormatException("AER008", "Truncated AER frame payload.");
+            results.Add(AerBinary.Decode(data.Slice(offset + 9, (int)length), binaryOptions));
+            offset += frameLength;
         }
         return results;
     }
