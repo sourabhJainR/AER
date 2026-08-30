@@ -1,0 +1,15 @@
+{
+  "name": "@aer-format/core",
+  "version": "0.1.0",
+  "description": "Adaptive Efficient Representation core TypeScript implementation",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": { ".": { "types": "./dist/index.d.ts", "import": "./dist/index.js" } },
+  "files": ["dist"],
+  "license": "Apache-2.0",
+  "repository": { "type": "git", "url": "https://github.com/sourabhJainR/AER.git", "directory": "implementations/typescript" },
+  "scripts": { "build": "tsc -p tsconfig.json", "test": "node test/test.mjs" },
+  "engines": { "node": ">=20" },
+  "devDependencies": { "typescript": "^5.0.0" }
+}
