@@ -7,5 +7,14 @@
     <NoWarn>$(NoWarn);1591</NoWarn>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <RootNamespace>Aer</RootNamespace>
+    <PackageId>AER.Format.Core</PackageId>
+    <Version>0.1.0</Version>
+    <Authors>AER contributors</Authors>
+    <Description>Adaptive Efficient Representation core for human, AI and binary data interchange.</Description>
+    <PackageTags>aer;serialization;llm;mcp;data-format</PackageTags>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/sourabhJainR/AER</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
   </PropertyGroup>
 </Project>
