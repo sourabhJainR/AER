@@ -12,6 +12,10 @@ license = { text = "Apache-2.0" }
 authors = [{ name = "AER contributors" }]
 keywords = ["aer", "serialization", "llm", "mcp", "data-format"]
 
+[project.optional-dependencies]
+test = ["pytest>=8,<9"]
+ai = ["tiktoken>=0.9,<1", "transformers>=4.0,<5"]
+
 [project.urls]
 Homepage = "https://github.com/sourabhJainR/AER"
 Repository = "https://github.com/sourabhJainR/AER"
