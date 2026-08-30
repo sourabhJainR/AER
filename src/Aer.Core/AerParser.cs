@@ -1,13 +1,21 @@
 using System.Globalization;
+using System.Text;
 
 namespace Aer;
 
 public static class AerParser
 {
-    public static AerDocument Parse(string text)
+    public static AerDocument Parse(string text, AerParseOptions? options = null)
     {
         if (text is null) throw new ArgumentNullException(nameof(text));
+        options ??= new AerParseOptions();
+        if (Encoding.UTF8.GetByteCount(text) > options.MaxDocumentBytes)
+            throw new AerFormatException("AER006", $"Document exceeds {options.MaxDocumentBytes} bytes.");
+
         var lines = text.Replace("\r\n", "\n").Replace('\r', '\n').Split('\n');
+        if (lines.Length > options.MaxLines)
+            throw new AerFormatException("AER006", $"Document exceeds {options.MaxLines} lines.");
+
         var meaningful = lines.Where(l => !string.IsNullOrWhiteSpace(l) && !l.TrimStart().StartsWith('#')).ToList();
         var index = 0;
         var version = 1;
@@ -19,50 +27,55 @@ public static class AerParser
             else if (p.Length == 2) directives[p[0][1..]] = p[1];
             index++;
         }
-        if (index >= meaningful.Count) throw new FormatException("AER document contains no root value.");
-        var root = ParseBlock(meaningful, ref index, CountIndent(meaningful[index]));
+        if (index >= meaningful.Count) throw new AerFormatException("AER002", "AER document contains no root value.");
+        var root = ParseBlock(meaningful, ref index, CountIndent(meaningful[index]), 0, options);
         return new AerDocument(version, root, directives);
     }
 
-    private static AerValue ParseBlock(IReadOnlyList<string> lines, ref int index, int indent)
+    private static AerValue ParseBlock(IReadOnlyList<string> lines, ref int index, int indent, int depth, AerParseOptions options)
     {
+        if (depth > options.MaxDepth) throw new AerFormatException("AER007", $"Maximum nesting depth {options.MaxDepth} exceeded.");
         var obj = new Dictionary<string, AerValue>(StringComparer.Ordinal);
         while (index < lines.Count)
         {
             var raw = lines[index];
             var currentIndent = CountIndent(raw);
             if (currentIndent < indent) break;
-            if (currentIndent > indent) throw new FormatException($"Unexpected indentation on line {index + 1}.");
+            if (currentIndent > indent) throw new AerFormatException("AER002", $"Unexpected indentation on line {index + 1}.");
             var line = raw.Trim();
             if (line.StartsWith('@')) { index++; continue; }
             var colon = FindUnquoted(line, ':');
-            if (colon < 1) throw new FormatException($"Expected key:value on line {index + 1}: {line}");
+            if (colon < 1) throw new AerFormatException("AER002", $"Expected key:value on line {index + 1}: {line}");
             var keySpec = line[..colon];
             var rest = line[(colon + 1)..].Trim();
             if (TryParseTableHeader(keySpec, rest, out var tableName, out var count, out var columns))
             {
+                if (count > options.MaxCollectionItems) throw new AerFormatException("AER006", $"Table exceeds {options.MaxCollectionItems} rows.");
                 index++;
-                var rows = new List<IReadOnlyList<AerValue>>();
+                var rows = new List<IReadOnlyList<AerValue>>(count);
                 for (var r = 0; r < count; r++)
                 {
-                    if (index >= lines.Count) throw new FormatException("Unexpected end of table.");
+                    if (index >= lines.Count) throw new AerFormatException("AER004", "Unexpected end of table.");
                     var rowLine = lines[index++].Trim();
-                    rows.Add(SplitCsv(rowLine).Select(ParseScalar).ToArray());
+                    var cells = SplitCsv(rowLine);
+                    if (cells.Count != columns.Count) throw new AerFormatException("AER004", $"{tableName}: expected {columns.Count} cells but found {cells.Count}.");
+                    rows.Add(cells.Select(c => ParseScalar(c, options)).ToArray());
                 }
                 obj[tableName] = AerValue.Table(new AerTable(columns, rows).Validate());
                 continue;
             }
             if (TryParseCountedArray(keySpec, rest, out var arrayName, out var values))
             {
-                obj[arrayName] = AerValue.Array(values.Select(ParseScalar).ToArray()); index++; continue;
+                if (values.Count > options.MaxCollectionItems) throw new AerFormatException("AER006", $"Array exceeds {options.MaxCollectionItems} items.");
+                obj[arrayName] = AerValue.Array(values.Select(v => ParseScalar(v, options)).ToArray()); index++; continue;
             }
             if (rest.Length == 0)
             {
                 index++;
-                if (index < lines.Count && CountIndent(lines[index]) > indent) obj[keySpec] = ParseBlock(lines, ref index, CountIndent(lines[index]));
+                if (index < lines.Count && CountIndent(lines[index]) > indent) obj[keySpec] = ParseBlock(lines, ref index, CountIndent(lines[index]), depth + 1, options);
                 else obj[keySpec] = AerValue.Object(new Dictionary<string, AerValue>());
             }
-            else { obj[keySpec] = ParseScalar(rest); index++; }
+            else { obj[keySpec] = ParseScalar(rest, options); index++; }
         }
         return AerValue.Object(obj);
     }
@@ -71,9 +84,9 @@ public static class AerParser
     {
         name = spec; values = Array.Empty<string>();
         var open = spec.LastIndexOf('['); var close = spec.EndsWith(']') ? spec.Length - 1 : -1;
-        if (open <= 0 || close <= open || !int.TryParse(spec[(open + 1)..close], out var count)) return false;
+        if (open <= 0 || close <= open || !int.TryParse(spec[(open + 1)..close], NumberStyles.None, CultureInfo.InvariantCulture, out var count)) return false;
         name = spec[..open]; values = SplitCsv(rest);
-        if (values.Count != count) throw new FormatException($"{name}: declared {count} items but found {values.Count}.");
+        if (values.Count != count) throw new AerFormatException("AER004", $"{name}: declared {count} items but found {values.Count}.");
         return true;
     }
 
@@ -82,15 +95,16 @@ public static class AerParser
         name = spec; count = 0; columns = Array.Empty<string>();
         var open = spec.LastIndexOf('['); var mid = spec.IndexOf("]{", StringComparison.Ordinal);
         if (open <= 0 || mid < open || !spec.EndsWith('}') || rest.Length != 0) return false;
-        if (!int.TryParse(spec[(open + 1)..mid], out count)) return false;
+        if (!int.TryParse(spec[(open + 1)..mid], NumberStyles.None, CultureInfo.InvariantCulture, out count)) return false;
         name = spec[..open]; columns = SplitCsv(spec[(mid + 2)..^1]);
-        if (columns.Count == 0) throw new FormatException($"{name}: table requires columns.");
+        if (columns.Count == 0) throw new AerFormatException("AER004", $"{name}: table requires columns.");
         return true;
     }
 
-    private static AerValue ParseScalar(string text)
+    private static AerValue ParseScalar(string text, AerParseOptions options)
     {
         text = text.Trim();
+        if (text.Length > options.MaxScalarLength) throw new AerFormatException("AER006", $"Scalar exceeds {options.MaxScalarLength} characters.");
         if (text == "-") return AerValue.Null;
         if (text.Equals("true", StringComparison.OrdinalIgnoreCase)) return AerValue.Bool(true);
         if (text.Equals("false", StringComparison.OrdinalIgnoreCase)) return AerValue.Bool(false);
