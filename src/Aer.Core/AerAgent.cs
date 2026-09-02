@@ -32,15 +32,12 @@ public sealed record AerAgentFrame(
     int? InputTokens = null,
     int? OutputTokens = null)
 {
-    /// <summary>Creates a user/assistant/observation frame with a text payload.</summary>
     public static AerAgentFrame Text(AerAgentFrameKind kind, long sequence, string id, string text, string? summary = null)
         => new(kind, sequence, id, AerValue.String(text), Summary: summary);
 
-    /// <summary>Creates a tool-call frame. Arguments are kept typed rather than JSON strings.</summary>
     public static AerAgentFrame ToolCall(long sequence, string id, string tool, AerValue arguments, string? parentId = null)
         => new(AerAgentFrameKind.ToolCall, sequence, id, arguments, Name: tool, ParentId: parentId);
 
-    /// <summary>Creates a tool-result frame. Large outputs can be represented by a summary and marked truncated.</summary>
     public static AerAgentFrame ToolResult(long sequence, string id, string tool, AerValue result, bool truncated = false, string? summary = null, string? parentId = null)
         => new(AerAgentFrameKind.ToolResult, sequence, id, result, Name: tool, Summary: summary, ParentId: parentId, Truncated: truncated);
 
@@ -49,12 +46,7 @@ public sealed record AerAgentFrame(
     {
         var fields = new Dictionary<string, AerValue>(StringComparer.Ordinal)
         {
-            ["kind"] = AerValue.String(Kind switch
-            {
-                AerAgentFrameKind.ToolCall => "tool_call",
-                AerAgentFrameKind.ToolResult => "tool_result",
-                _ => Kind.ToString().ToLowerInvariant()
-            }),
+            ["kind"] = AerValue.String(ToKindText(Kind)),
             ["seq"] = AerValue.Int(Sequence),
             ["id"] = AerValue.String(Id)
         };
@@ -70,6 +62,75 @@ public sealed record AerAgentFrame(
         return AerValue.Object(fields);
     }
 
+    /// <summary>Reconstructs a frame from a canonical AER object.</summary>
+    public static AerAgentFrame FromValue(AerValue value)
+    {
+        if (value.Kind != AerKind.Object) throw new AerFormatException("AER005", "Agent frame must be an object.");
+        var fields = (IReadOnlyDictionary<string, AerValue>)value.Data!;
+        var kind = ReadRequiredString(fields, "kind");
+        var sequence = ReadRequiredInt(fields, "seq");
+        var id = ReadRequiredString(fields, "id");
+        return new(
+            ParseKind(kind), sequence, id,
+            ReadOptional(fields, "data"),
+            ReadOptionalString(fields, "name"),
+            ReadOptionalString(fields, "status"),
+            ReadOptionalString(fields, "summary"),
+            ReadOptionalString(fields, "parent"),
+            ReadOptionalBool(fields, "truncated"),
+            ReadOptionalInt(fields, "input_tokens"),
+            ReadOptionalInt(fields, "output_tokens"));
+    }
+
+    private static string ToKindText(AerAgentFrameKind kind) => kind switch
+    {
+        AerAgentFrameKind.ToolCall => "tool_call",
+        AerAgentFrameKind.ToolResult => "tool_result",
+        _ => kind.ToString().ToLowerInvariant()
+    };
+
+    private static AerAgentFrameKind ParseKind(string value) => value switch
+    {
+        "session" => AerAgentFrameKind.Session,
+        "user" => AerAgentFrameKind.User,
+        "assistant" => AerAgentFrameKind.Assistant,
+        "tool_call" => AerAgentFrameKind.ToolCall,
+        "tool_result" => AerAgentFrameKind.ToolResult,
+        "observation" => AerAgentFrameKind.Observation,
+        "checkpoint" => AerAgentFrameKind.Checkpoint,
+        "error" => AerAgentFrameKind.Error,
+        "done" => AerAgentFrameKind.Done,
+        _ => throw new AerFormatException("AER005", $"Unknown agent frame kind '{value}'.")
+    };
+
+    private static string ReadRequiredString(IReadOnlyDictionary<string, AerValue> fields, string key)
+        => ReadOptionalString(fields, key) ?? throw new AerFormatException("AER005", $"Agent frame field '{key}' is required.");
+
+    private static string? ReadOptionalString(IReadOnlyDictionary<string, AerValue> fields, string key)
+    {
+        if (!fields.TryGetValue(key, out var value)) return null;
+        return value.Kind == AerKind.String ? (string)value.Data! : throw new AerFormatException("AER005", $"Agent frame field '{key}' must be a string.");
+    }
+
+    private static long ReadRequiredInt(IReadOnlyDictionary<string, AerValue> fields, string key)
+        => ReadOptionalInt(fields, key) ?? throw new AerFormatException("AER005", $"Agent frame field '{key}' is required.");
+
+    private static int? ReadOptionalInt(IReadOnlyDictionary<string, AerValue> fields, string key)
+    {
+        if (!fields.TryGetValue(key, out var value)) return null;
+        if (value.Kind != AerKind.Int || (long)value.Data! is < int.MinValue or > int.MaxValue) throw new AerFormatException("AER005", $"Agent frame field '{key}' must be an integer.");
+        return (int)(long)value.Data!;
+    }
+
+    private static bool ReadOptionalBool(IReadOnlyDictionary<string, AerValue> fields, string key)
+    {
+        if (!fields.TryGetValue(key, out var value)) return false;
+        return value.Kind == AerKind.Bool ? (bool)value.Data! : throw new AerFormatException("AER005", $"Agent frame field '{key}' must be a boolean.");
+    }
+
+    private static AerValue? ReadOptional(IReadOnlyDictionary<string, AerValue> fields, string key)
+        => fields.TryGetValue(key, out var value) ? value : null;
+
     private static void Add(IDictionary<string, AerValue> fields, string key, string? value)
     {
         if (value is not null) fields[key] = AerValue.String(value);
@@ -84,27 +145,22 @@ public sealed record AerAgentFrame(
 /// <summary>Agent-oriented encoding helpers built on the canonical AER model.</summary>
 public static class AerAgent
 {
-    /// <summary>Encode one frame using the token-aware AER-AI profile.</summary>
     public static string EncodeAi(AerAgentFrame frame) => AerAiAdapter.Encode(frame.ToValue(), options: new AerAiOptions(IncludeSchema: false)).Payload;
 
-    /// <summary>Encode one frame as a deterministic AER-B stream frame.</summary>
     public static byte[] EncodeBinaryFrame(AerAgentFrame frame) => AerStream.EncodeFrame(frame.ToValue());
 
-    /// <summary>Encode multiple frames as a sequence of length-prefixed AER-B frames.</summary>
     public static byte[] EncodeBinaryFrames(IEnumerable<AerAgentFrame> frames)
     {
         using var stream = new MemoryStream();
-        foreach (var frame in frames)
-        {
-            var encoded = EncodeBinaryFrame(frame);
-            stream.Write(encoded);
-        }
+        foreach (var frame in frames) stream.Write(EncodeBinaryFrame(frame));
         return stream.ToArray();
     }
 
-    /// <summary>Encode a tool result as an AER-AI payload, preserving typed data and execution metadata.</summary>
     public static string EncodeToolResult(string tool, string callId, AerValue result, bool truncated = false, string? summary = null)
         => EncodeAi(AerAgentFrame.ToolResult(0, callId, tool, result, truncated, summary));
+
+    public static IReadOnlyList<AerAgentFrame> DecodeBinaryFrames(ReadOnlySpan<byte> data, int maxFrameBytes = 16 * 1024 * 1024)
+        => AerStream.DecodeFrames(data, maxFrameBytes).Select(AerAgentFrame.FromValue).ToArray();
 }
 
 /// <summary>
@@ -115,11 +171,6 @@ public static class AerAgent
 /// </summary>
 public static class AerAgentContext
 {
-    /// <summary>
-    /// Projects frames to a bounded recent window. Older tool results retain identity, tool name,
-    /// summary and truncation metadata but their payload is removed. Frames are never reordered or
-    /// split, so tool-call/result relationships remain intact.
-    /// </summary>
     public static IReadOnlyList<AerAgentFrame> MicroCompact(
         IReadOnlyList<AerAgentFrame> frames,
         int keepRecentFrames,
@@ -134,14 +185,31 @@ public static class AerAgentContext
         {
             var frame = frames[i];
             if (i < boundary && frame.Kind == AerAgentFrameKind.ToolResult && frame.Data is not null)
-            {
                 result[i] = frame with { Data = null, Truncated = true, Summary = frame.Summary ?? "tool result elided by microcompaction" };
-            }
             else
-            {
                 result[i] = frame;
-            }
         }
         return result;
     }
+}
+
+/// <summary>Append-only transcript with the same single-order invariant expected by replayable agent runtimes.</summary>
+public sealed class AerAgentTranscript
+{
+    private readonly List<AerAgentFrame> _frames = [];
+
+    public IReadOnlyList<AerAgentFrame> Frames => _frames;
+
+    public void Append(AerAgentFrame frame)
+    {
+        if (frame.Sequence < 0) throw new ArgumentOutOfRangeException(nameof(frame));
+        if (_frames.Count > 0 && frame.Sequence <= _frames[^1].Sequence)
+            throw new AerFormatException("AER005", "Agent frame sequence must increase monotonically.");
+        if (_frames.Any(x => x.Id == frame.Id))
+            throw new AerFormatException("AER005", $"Duplicate agent frame id '{frame.Id}'.");
+        _frames.Add(frame);
+    }
+
+    public IReadOnlyList<AerAgentFrame> MicroCompact(int keepRecentFrames)
+        => AerAgentContext.MicroCompact(_frames, keepRecentFrames);
 }
