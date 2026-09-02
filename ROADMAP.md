@@ -28,6 +28,8 @@
 - Add agent/tool/RAG examples.
 - Add AI benchmark corpus.
 - Support content negotiation and profile selection.
+- Add the AER Agent profile for typed tool calls/results, checkpoints and context projection.
+- Benchmark AER Agent context against JSON and other agent-context representations on real coding tasks.
 
 ## Phase 5: enterprise
 
