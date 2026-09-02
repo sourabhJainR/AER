@@ -230,7 +230,7 @@ public static class AerAgent
 /// <summary>
 /// Deterministic context projection for coding-agent transcripts.
 /// It applies the representation-level part of harness compaction: old tool bodies are elided,
-/// while control metadata, identities and recent frames remain available for the model/runtime.
+/// while the original tool-result identity remains intact for replay and correlation.
 /// </summary>
 public static class AerAgentContext
 {
@@ -252,8 +252,7 @@ public static class AerAgentContext
                 {
                     Data = null,
                     Truncated = true,
-                    Summary = frame.Summary ?? "tool result elided by microcompaction",
-                    Kind = AerAgentFrameKind.ContextMicrocompacted
+                    Summary = frame.Summary ?? "tool result elided by microcompaction"
                 };
             else
                 result[i] = frame;
