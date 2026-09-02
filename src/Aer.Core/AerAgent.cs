@@ -4,13 +4,23 @@ namespace Aer;
 public enum AerAgentFrameKind
 {
     Session,
+    TurnStarted,
     User,
+    Steering,
     Assistant,
     ToolCall,
+    PermissionRequested,
+    PermissionResult,
     ToolResult,
     Observation,
+    UserQuestion,
+    FollowUp,
     Checkpoint,
+    ContextCompacted,
+    ContextMicrocompacted,
     Error,
+    Abort,
+    TurnFinished,
     Done
 }
 
@@ -28,18 +38,23 @@ public sealed record AerAgentFrame(
     string? Status = null,
     string? Summary = null,
     string? ParentId = null,
+    string? RelatedId = null,
+    string? TurnId = null,
+    string? Boundary = null,
     bool Truncated = false,
+    bool Retryable = false,
+    int? Attempt = null,
     int? InputTokens = null,
     int? OutputTokens = null)
 {
-    public static AerAgentFrame Text(AerAgentFrameKind kind, long sequence, string id, string text, string? summary = null)
-        => new(kind, sequence, id, AerValue.String(text), Summary: summary);
+    public static AerAgentFrame Text(AerAgentFrameKind kind, long sequence, string id, string text, string? summary = null, string? turnId = null)
+        => new(kind, sequence, id, AerValue.String(text), Summary: summary, TurnId: turnId);
 
-    public static AerAgentFrame ToolCall(long sequence, string id, string tool, AerValue arguments, string? parentId = null)
-        => new(AerAgentFrameKind.ToolCall, sequence, id, arguments, Name: tool, ParentId: parentId);
+    public static AerAgentFrame ToolCall(long sequence, string id, string tool, AerValue arguments, string? parentId = null, string? turnId = null, int? attempt = null)
+        => new(AerAgentFrameKind.ToolCall, sequence, id, arguments, Name: tool, ParentId: parentId, TurnId: turnId, Attempt: attempt);
 
-    public static AerAgentFrame ToolResult(long sequence, string id, string tool, AerValue result, bool truncated = false, string? summary = null, string? parentId = null)
-        => new(AerAgentFrameKind.ToolResult, sequence, id, result, Name: tool, Summary: summary, ParentId: parentId, Truncated: truncated);
+    public static AerAgentFrame ToolResult(long sequence, string id, string tool, AerValue result, bool truncated = false, string? summary = null, string? parentId = null, string? relatedId = null, string? turnId = null, bool retryable = false, int? attempt = null)
+        => new(AerAgentFrameKind.ToolResult, sequence, id, result, Name: tool, Summary: summary, ParentId: parentId, RelatedId: relatedId, TurnId: turnId, Truncated: truncated, Retryable: retryable, Attempt: attempt);
 
     /// <summary>Converts the frame to the canonical AER value model using stable compact field names.</summary>
     public AerValue ToValue()
@@ -56,7 +71,12 @@ public sealed record AerAgentFrame(
         Add(fields, "status", Status);
         Add(fields, "summary", Summary);
         Add(fields, "parent", ParentId);
+        Add(fields, "related", RelatedId);
+        Add(fields, "turn", TurnId);
+        Add(fields, "boundary", Boundary);
         if (Truncated) fields["truncated"] = AerValue.Bool(true);
+        if (Retryable) fields["retryable"] = AerValue.Bool(true);
+        if (Attempt is int attempt) fields["attempt"] = AerValue.Int(attempt);
         if (InputTokens is int input) fields["input_tokens"] = AerValue.Int(input);
         if (OutputTokens is int output) fields["output_tokens"] = AerValue.Int(output);
         return AerValue.Object(fields);
@@ -68,37 +88,74 @@ public sealed record AerAgentFrame(
         if (value.Kind != AerKind.Object) throw new AerFormatException("AER005", "Agent frame must be an object.");
         var fields = (IReadOnlyDictionary<string, AerValue>)value.Data!;
         var kind = ReadRequiredString(fields, "kind");
-        var sequence = ReadRequiredInt(fields, "seq");
+        var sequence = ReadRequiredLong(fields, "seq");
         var id = ReadRequiredString(fields, "id");
-        return new(
+        var frame = new AerAgentFrame(
             ParseKind(kind), sequence, id,
             ReadOptional(fields, "data"),
             ReadOptionalString(fields, "name"),
             ReadOptionalString(fields, "status"),
             ReadOptionalString(fields, "summary"),
             ReadOptionalString(fields, "parent"),
+            ReadOptionalString(fields, "related"),
+            ReadOptionalString(fields, "turn"),
+            ReadOptionalString(fields, "boundary"),
             ReadOptionalBool(fields, "truncated"),
+            ReadOptionalBool(fields, "retryable"),
+            ReadOptionalInt(fields, "attempt"),
             ReadOptionalInt(fields, "input_tokens"),
             ReadOptionalInt(fields, "output_tokens"));
+        frame.Validate();
+        return frame;
+    }
+
+    /// <summary>Validates invariants that are useful to every agent implementation.</summary>
+    public void Validate()
+    {
+        if (Sequence < 0) throw new AerFormatException("AER005", "Agent frame sequence cannot be negative.");
+        if (string.IsNullOrWhiteSpace(Id)) throw new AerFormatException("AER005", "Agent frame id is required.");
+        if (Attempt is <= 0) throw new AerFormatException("AER005", "Agent frame attempt must be positive.");
+        if (InputTokens is < 0 || OutputTokens is < 0) throw new AerFormatException("AER005", "Agent token counts cannot be negative.");
+        if (Kind == AerAgentFrameKind.ToolCall && string.IsNullOrWhiteSpace(Name))
+            throw new AerFormatException("AER005", "Tool call name is required.");
+        if (Kind == AerAgentFrameKind.ToolResult && string.IsNullOrWhiteSpace(Name))
+            throw new AerFormatException("AER005", "Tool result name is required.");
     }
 
     private static string ToKindText(AerAgentFrameKind kind) => kind switch
     {
         AerAgentFrameKind.ToolCall => "tool_call",
         AerAgentFrameKind.ToolResult => "tool_result",
+        AerAgentFrameKind.TurnStarted => "turn_started",
+        AerAgentFrameKind.PermissionRequested => "permission_requested",
+        AerAgentFrameKind.PermissionResult => "permission_result",
+        AerAgentFrameKind.UserQuestion => "user_question",
+        AerAgentFrameKind.ContextCompacted => "context_compacted",
+        AerAgentFrameKind.ContextMicrocompacted => "context_microcompacted",
+        AerAgentFrameKind.TurnFinished => "turn_finished",
         _ => kind.ToString().ToLowerInvariant()
     };
 
     private static AerAgentFrameKind ParseKind(string value) => value switch
     {
         "session" => AerAgentFrameKind.Session,
+        "turn_started" => AerAgentFrameKind.TurnStarted,
         "user" => AerAgentFrameKind.User,
+        "steering" => AerAgentFrameKind.Steering,
         "assistant" => AerAgentFrameKind.Assistant,
         "tool_call" => AerAgentFrameKind.ToolCall,
+        "permission_requested" => AerAgentFrameKind.PermissionRequested,
+        "permission_result" => AerAgentFrameKind.PermissionResult,
         "tool_result" => AerAgentFrameKind.ToolResult,
         "observation" => AerAgentFrameKind.Observation,
+        "user_question" => AerAgentFrameKind.UserQuestion,
+        "follow_up" => AerAgentFrameKind.FollowUp,
         "checkpoint" => AerAgentFrameKind.Checkpoint,
+        "context_compacted" => AerAgentFrameKind.ContextCompacted,
+        "context_microcompacted" => AerAgentFrameKind.ContextMicrocompacted,
         "error" => AerAgentFrameKind.Error,
+        "abort" => AerAgentFrameKind.Abort,
+        "turn_finished" => AerAgentFrameKind.TurnFinished,
         "done" => AerAgentFrameKind.Done,
         _ => throw new AerFormatException("AER005", $"Unknown agent frame kind '{value}'.")
     };
@@ -112,14 +169,21 @@ public sealed record AerAgentFrame(
         return value.Kind == AerKind.String ? (string)value.Data! : throw new AerFormatException("AER005", $"Agent frame field '{key}' must be a string.");
     }
 
-    private static long ReadRequiredInt(IReadOnlyDictionary<string, AerValue> fields, string key)
-        => ReadOptionalInt(fields, key) ?? throw new AerFormatException("AER005", $"Agent frame field '{key}' is required.");
+    private static long ReadRequiredLong(IReadOnlyDictionary<string, AerValue> fields, string key)
+        => ReadOptionalLong(fields, key) ?? throw new AerFormatException("AER005", $"Agent frame field '{key}' is required.");
+
+    private static long? ReadOptionalLong(IReadOnlyDictionary<string, AerValue> fields, string key)
+    {
+        if (!fields.TryGetValue(key, out var value)) return null;
+        return value.Kind == AerKind.Int ? (long)value.Data! : throw new AerFormatException("AER005", $"Agent frame field '{key}' must be an integer.");
+    }
 
     private static int? ReadOptionalInt(IReadOnlyDictionary<string, AerValue> fields, string key)
     {
-        if (!fields.TryGetValue(key, out var value)) return null;
-        if (value.Kind != AerKind.Int || (long)value.Data! is < int.MinValue or > int.MaxValue) throw new AerFormatException("AER005", $"Agent frame field '{key}' must be an integer.");
-        return (int)(long)value.Data!;
+        var value = ReadOptionalLong(fields, key);
+        if (value is null) return null;
+        if (value.Value is < int.MinValue or > int.MaxValue) throw new AerFormatException("AER005", $"Agent frame field '{key}' is outside the supported integer range.");
+        return (int)value.Value;
     }
 
     private static bool ReadOptionalBool(IReadOnlyDictionary<string, AerValue> fields, string key)
@@ -165,9 +229,8 @@ public static class AerAgent
 
 /// <summary>
 /// Deterministic context projection for coding-agent transcripts.
-/// It applies the same idea as agent-harness micro-compaction: keep recent frames intact while
-/// replacing older tool payloads with metadata. No LLM call is made, so the operation is safe for
-/// libraries, gateways and offline runtimes.
+/// It applies the representation-level part of harness compaction: old tool bodies are elided,
+/// while control metadata, identities and recent frames remain available for the model/runtime.
 /// </summary>
 public static class AerAgentContext
 {
@@ -185,15 +248,28 @@ public static class AerAgentContext
         {
             var frame = frames[i];
             if (i < boundary && frame.Kind == AerAgentFrameKind.ToolResult && frame.Data is not null)
-                result[i] = frame with { Data = null, Truncated = true, Summary = frame.Summary ?? "tool result elided by microcompaction" };
+                result[i] = frame with
+                {
+                    Data = null,
+                    Truncated = true,
+                    Summary = frame.Summary ?? "tool result elided by microcompaction",
+                    Kind = AerAgentFrameKind.ContextMicrocompacted
+                };
             else
                 result[i] = frame;
         }
         return result;
     }
+
+    /// <summary>
+    /// Adds an explicit semantic checkpoint to a transcript. The summary is supplied by the
+    /// harness/model; AER only transports it and never performs an LLM summarization itself.
+    /// </summary>
+    public static AerAgentFrame Checkpoint(long sequence, string id, string summary, AerValue? state = null, string? turnId = null)
+        => new(AerAgentFrameKind.Checkpoint, sequence, id, state, Summary: summary, TurnId: turnId, Boundary: "context_boundary");
 }
 
-/// <summary>Append-only transcript with the same single-order invariant expected by replayable agent runtimes.</summary>
+/// <summary>Append-only transcript with ordering, identity and turn correlation invariants.</summary>
 public sealed class AerAgentTranscript
 {
     private readonly List<AerAgentFrame> _frames = [];
@@ -202,7 +278,7 @@ public sealed class AerAgentTranscript
 
     public void Append(AerAgentFrame frame)
     {
-        if (frame.Sequence < 0) throw new ArgumentOutOfRangeException(nameof(frame));
+        frame.Validate();
         if (_frames.Count > 0 && frame.Sequence <= _frames[^1].Sequence)
             throw new AerFormatException("AER005", "Agent frame sequence must increase monotonically.");
         if (_frames.Any(x => x.Id == frame.Id))
