@@ -8,15 +8,25 @@ for (var i = 0; i < cases; i++)
 {
     var json = RandomValue(random, depth: 0);
     var value = AerValue.FromJson(json);
-    var text = AER.Serialize(value);
-    var textRoundTrip = AER.Deserialize(text).ToJsonElement();
-    var binary = AER.ToBinary(value);
-    var binaryRoundTrip = AER.FromBinary(binary).ToJsonElement();
 
-    if (!JsonElement.DeepEquals(json, textRoundTrip))
-        throw new InvalidOperationException($"Text property failure at case {i}: {text}");
-    if (!JsonElement.DeepEquals(json, binaryRoundTrip))
-        throw new InvalidOperationException($"Binary property failure at case {i}.");
+    // Validate the canonical text representation is stable after a complete decode/encode cycle.
+    var text = AER.Serialize(value);
+    var textValue = AER.Deserialize(text);
+    var textAgain = AER.Serialize(textValue);
+    if (!string.Equals(text, textAgain, StringComparison.Ordinal))
+        throw new InvalidOperationException($"Text canonicalization failure at case {i}: {text}");
+
+    // Validate binary and text describe the same canonical AER value.
+    var binary = AER.ToBinary(value);
+    var binaryValue = AER.FromBinary(binary);
+    var binaryAsText = AER.Serialize(binaryValue);
+    if (!string.Equals(text, binaryAsText, StringComparison.Ordinal))
+        throw new InvalidOperationException($"Binary canonicalization failure at case {i}: {text}");
+
+    // The source JSON is also checked semantically where the AER model has a direct JSON projection.
+    var projected = textValue.ToJsonElement();
+    if (!JsonElement.DeepEquals(json, projected))
+        throw new InvalidOperationException($"Semantic property failure at case {i}: {text}");
 }
 
 Console.WriteLine($"AER deterministic property suite passed: {cases} cases.");
