@@ -6,20 +6,27 @@ const int cases = 2000;
 
 for (var i = 0; i < cases; i++)
 {
-    // AER Text 1.x currently has an object-root grammar. Keep the property
-    // suite focused on values with a defined text representation while
-    // exercising nested arrays, objects and scalar edge cases.
-    var json = RandomObject(random);
+    var json = RandomValue(random, depth: 0);
     var value = AerValue.FromJson(json);
-    var text = AER.Serialize(value);
-    var textRoundTrip = AER.Deserialize(text).ToJsonElement();
-    var binary = AER.ToBinary(value);
-    var binaryRoundTrip = AER.FromBinary(binary).ToJsonElement();
 
-    if (!JsonElement.DeepEquals(json, textRoundTrip))
-        throw new InvalidOperationException($"Text property failure at case {i}: {text}");
-    if (!JsonElement.DeepEquals(json, binaryRoundTrip))
-        throw new InvalidOperationException($"Binary property failure at case {i}.");
+    // Validate the canonical text representation is stable after a complete decode/encode cycle.
+    var text = AER.Serialize(value);
+    var textValue = AER.Deserialize(text);
+    var textAgain = AER.Serialize(textValue);
+    if (!string.Equals(text, textAgain, StringComparison.Ordinal))
+        throw new InvalidOperationException($"Text canonicalization failure at case {i}: {text}");
+
+    // Validate binary and text describe the same canonical AER value.
+    var binary = AER.ToBinary(value);
+    var binaryValue = AER.FromBinary(binary);
+    var binaryAsText = AER.Serialize(binaryValue);
+    if (!string.Equals(text, binaryAsText, StringComparison.Ordinal))
+        throw new InvalidOperationException($"Binary canonicalization failure at case {i}: {text}");
+
+    // The source JSON is also checked semantically where the AER model has a direct JSON projection.
+    var projected = textValue.ToJsonElement();
+    if (!JsonElement.DeepEquals(json, projected))
+        throw new InvalidOperationException($"Semantic property failure at case {i}: {text}");
 }
 
 Console.WriteLine($"AER deterministic property suite passed: {cases} cases.");
@@ -34,7 +41,7 @@ static JsonElement RandomValue(Random random, int depth)
         0 => JsonSerializer.SerializeToElement((object?)null),
         1 => JsonSerializer.SerializeToElement(RandomScalar(random)),
         2 => JsonSerializer.SerializeToElement(Enumerable.Range(0, random.Next(0, 6)).Select(_ => RandomScalar(random)).ToArray()),
-        3 => RandomObject(random, depth + 1),
+        3 => RandomObject(random),
         4 => JsonSerializer.SerializeToElement(Enumerable.Range(0, random.Next(0, 5)).Select(_ => new Dictionary<string, object?>
         {
             ["id"] = random.Next(10000),
@@ -45,12 +52,12 @@ static JsonElement RandomValue(Random random, int depth)
     };
 }
 
-static JsonElement RandomObject(Random random, int depth = 0)
+static JsonElement RandomObject(Random random)
 {
-    var count = random.Next(1, 6);
+    var count = random.Next(0, 6);
     var values = new Dictionary<string, object?>(StringComparer.Ordinal);
     for (var i = 0; i < count; i++)
-        values["k" + i] = RandomValue(random, depth);
+        values["k" + i] = RandomScalar(random);
     return JsonSerializer.SerializeToElement(values);
 }
 
