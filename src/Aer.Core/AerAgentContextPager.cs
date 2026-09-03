@@ -28,6 +28,8 @@ public sealed record AerAgentContextPage(
         if (string.IsNullOrWhiteSpace(PrefixHash) || PrefixHash.Length != 64)
             throw new AerFormatException("AER005", "Context page prefix hash must be a SHA-256 hex digest.");
         if (Frames.Count == 0) throw new AerFormatException("AER005", "Context pages cannot be empty.");
+        if (Frames[0].Sequence != StartSequence || Frames[^1].Sequence != EndSequence)
+            throw new AerFormatException("AER005", "Context page sequence range does not match its frames.");
     }
 }
 
@@ -61,10 +63,18 @@ public static class AerAgentContextPager
         var pages = new List<AerAgentContextPage>();
         var current = new List<AerAgentFrame>();
         var currentTokens = 0;
+        long? previousSequence = null;
+        var ids = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (var frame in frames)
         {
             frame.Validate();
+            if (previousSequence is long previous && frame.Sequence <= previous)
+                throw new AerFormatException("AER005", "Context frames must have strictly increasing sequences.");
+            if (!ids.Add(frame.Id))
+                throw new AerFormatException("AER005", $"Duplicate context frame id '{frame.Id}'.");
+            previousSequence = frame.Sequence;
+
             var estimate = tokenEstimator(frame);
             if (estimate < 0) throw new ArgumentException("Token estimator cannot return a negative value.", nameof(tokenEstimator));
 
