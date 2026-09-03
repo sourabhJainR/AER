@@ -25,6 +25,12 @@ public static class AerParser
             index++;
         }
         if (index >= meaningful.Count) throw new AerFormatException("AER002", "AER document contains no root value.");
+        if (meaningful[index].Trim() == "{}")
+        {
+            index++;
+            if (index != meaningful.Count) throw new AerFormatException("AER002", $"Unexpected content on line {index + 1}.");
+            return new AerDocument(version, AerValue.Object(new Dictionary<string, AerValue>()), directives);
+        }
         var root = ParseBlock(meaningful, ref index, CountIndent(meaningful[index]), 0, options);
         if (index != meaningful.Count) throw new AerFormatException("AER002", $"Unexpected content on line {index + 1}.");
         return new AerDocument(version, root, directives);
