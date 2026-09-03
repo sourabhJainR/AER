@@ -28,6 +28,12 @@
 - Add agent/tool/RAG examples.
 - Add AI benchmark corpus.
 - Support content negotiation and profile selection.
+- Add the AER Agent profile for typed tool calls/results, lifecycle events, checkpoints and context projection.
+- Add AER Agent conformance vectors for lifecycle, correlation, retry, replay and compaction semantics.
+- Add JSON interoperability vectors for Agent frames.
+- Add Python, TypeScript and Go Agent Profile parity against the same vectors.
+- Benchmark AER Agent context against JSON and other agent-context representations on real coding tasks.
+- Measure task success, tool-call validity, context tokens, latency and cost; do not use character reduction as a proxy for AI effectiveness.
 
 ## Phase 5: enterprise
 
