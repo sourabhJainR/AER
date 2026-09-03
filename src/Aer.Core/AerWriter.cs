@@ -24,8 +24,14 @@ public static class AerWriter
         switch (value.Kind)
         {
             case AerKind.Object:
+                var objectValues = (IReadOnlyDictionary<string, AerValue>)value.Data!;
+                if (key is null && objectValues.Count == 0)
+                {
+                    sb.Append(pad).AppendLine("{}");
+                    break;
+                }
                 if (key is not null) sb.Append(pad).Append(key).AppendLine(":");
-                foreach (var pair in (IReadOnlyDictionary<string, AerValue>)value.Data!) WriteValue(sb, pair.Key, pair.Value, indent + (key is null ? 0 : 1), o);
+                foreach (var pair in objectValues) WriteValue(sb, pair.Key, pair.Value, indent + (key is null ? 0 : 1), o);
                 break;
             case AerKind.Array:
                 var values = (IReadOnlyList<AerValue>)value.Data!;

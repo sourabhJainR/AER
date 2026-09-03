@@ -1,0 +1,8 @@
+# AER source files are UTF-8 structured text.
+# Keep this mapping in the integration package so GitHub language detection/rendering
+# can be configured when the AER language definition is registered upstream.
+AER:
+  type: data
+  color: "#5B5BD6"
+  extensions:
+    - ".aer"

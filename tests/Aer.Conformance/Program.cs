@@ -49,6 +49,23 @@ foreach (var (id, test) in negative)
     catch (AerFormatException) { Console.WriteLine($"PASS {id}"); }
 }
 
+var emptyRoot = AerValue.Object(new Dictionary<string, AerValue>());
+var emptyRootText = AER.Serialize(emptyRoot);
+if (!string.Equals(emptyRootText, "{}\n", StringComparison.Ordinal))
+{
+    Console.Error.WriteLine($"FAIL empty-root-object: unexpected encoding '{emptyRootText}'");
+    failures++;
+}
+else
+{
+    var emptyRootRoundTrip = AER.Deserialize(emptyRootText);
+    if (emptyRootRoundTrip.Kind != AerKind.Object || ((IReadOnlyDictionary<string, AerValue>)emptyRootRoundTrip.Data!).Count != 0)
+    {
+        Console.Error.WriteLine("FAIL empty-root-object: roundtrip changed the root value");
+        failures++;
+    }
+    else Console.WriteLine("PASS empty-root-object");
+}
 var call = AerAgentFrame.ToolCall(
     1,
     "call-1",

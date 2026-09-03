@@ -15,6 +15,7 @@ if (corpus.Workloads is null || corpus.Workloads.Count == 0)
 const int warmup = 50;
 const int iterations = 500;
 var results = new List<BenchmarkResult>(corpus.Workloads.Count);
+var tokenizationInputs = new List<TokenizationInput>(corpus.Workloads.Count);
 
 foreach (var workload in corpus.Workloads)
 {
@@ -27,6 +28,8 @@ foreach (var workload in corpus.Workloads)
     var aerText = AER.Serialize(value);
     var aerAi = AerAiAdapter.Encode(value).Payload;
     var aerBinary = AER.ToBinary(value);
+
+    tokenizationInputs.Add(new TokenizationInput(workload.Id, jsonText, aerText, aerAi));
 
     var expected = JsonSerializer.SerializeToElement(workload.Value);
     var textRoundTrip = AER.Deserialize(aerText).ToJsonElement();
@@ -52,17 +55,24 @@ foreach (var workload in corpus.Workloads)
 if (results.Any(r => !r.TextRoundTrip || !r.BinaryRoundTrip))
     throw new InvalidOperationException("One or more effectiveness workloads failed canonical round-trip fidelity checks.");
 
+var outputDirectory = Path.Combine(repoRoot, "artifacts", "benchmarks");
+Directory.CreateDirectory(outputDirectory);
+
 var report = new BenchmarkReport(
-    "1.1",
+    "1.2",
     typeof(AER).Assembly.GetName().Version?.ToString() ?? "unknown",
     DateTimeOffset.UtcNow,
     corpus.Version,
     results);
 
-var outputDirectory = Path.Combine(repoRoot, "artifacts", "benchmarks");
-Directory.CreateDirectory(outputDirectory);
-var outputPath = Path.Combine(outputDirectory, "ai-effectiveness.json");
-File.WriteAllText(outputPath, JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
+var reportPath = Path.Combine(outputDirectory, "ai-effectiveness.json");
+File.WriteAllText(reportPath, JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
+
+var inputPath = Path.Combine(outputDirectory, "ai-effectiveness-tokenizer-input.json");
+File.WriteAllText(inputPath, JsonSerializer.Serialize(
+    new TokenizationCorpus(report.BenchmarkVersion, report.CorpusVersion, report.AerRuntimeVersion, tokenizationInputs),
+    new JsonSerializerOptions { WriteIndented = true }));
+
 Console.WriteLine(JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
 
 static double Ratio(int numerator, int denominator) => denominator == 0 ? 0 : Math.Round((double)numerator / denominator, 6);
@@ -102,3 +112,9 @@ public sealed record BenchmarkReport(
     DateTimeOffset TimestampUtc,
     string CorpusVersion,
     IReadOnlyList<BenchmarkResult> Results);
+public sealed record TokenizationInput(string Workload, string Json, string AerText, string AerAi);
+public sealed record TokenizationCorpus(
+    string BenchmarkVersion,
+    string CorpusVersion,
+    string AerRuntimeVersion,
+    IReadOnlyList<TokenizationInput> Workloads);
