@@ -108,7 +108,10 @@ public static class AerParser
     {
         name = spec; values = Array.Empty<string>(); var open = spec.LastIndexOf('['); var close = spec.EndsWith(']') ? spec.Length - 1 : -1;
         if (open <= 0 || close <= open || !int.TryParse(spec[(open + 1)..close], NumberStyles.None, CultureInfo.InvariantCulture, out var count)) return false;
-        name = spec[..open]; values = SplitCsv(rest); if (values.Count != count) throw new AerFormatException("AER004", $"{name}: declared {count} items but found {values.Count}."); return true;
+        name = spec[..open];
+        values = count == 0 && rest.Length == 0 ? Array.Empty<string>() : SplitCsv(rest);
+        if (values.Count != count) throw new AerFormatException("AER004", $"{name}: declared {count} items but found {values.Count}.");
+        return true;
     }
     private static bool TryParseTableHeader(string spec, string rest, out string name, out int count, out IReadOnlyList<string> columns)
     {
