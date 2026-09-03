@@ -4,9 +4,12 @@ using Aer;
 var random = new Random(0xAEE);
 const int cases = 2000;
 
+// AER documents currently have an object root. Exercise the full value space
+// inside that valid document envelope so the property suite tests the format
+// contract rather than generating unsupported root values.
 for (var i = 0; i < cases; i++)
 {
-    var json = RandomValue(random, depth: 0);
+    var json = RandomObject(random);
     var value = AerValue.FromJson(json);
 
     // Validate the canonical text representation is stable after a complete decode/encode cycle.
@@ -57,7 +60,7 @@ static JsonElement RandomObject(Random random)
     var count = random.Next(0, 6);
     var values = new Dictionary<string, object?>(StringComparer.Ordinal);
     for (var i = 0; i < count; i++)
-        values["k" + i] = RandomScalar(random);
+        values["k" + i] = RandomValue(random, 0);
     return JsonSerializer.SerializeToElement(values);
 }
 
