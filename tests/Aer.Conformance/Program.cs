@@ -115,4 +115,44 @@ if (checkpointRoundTrip.Kind != AerAgentFrameKind.Checkpoint || checkpointRoundT
 }
 else Console.WriteLine("PASS agent-checkpoint-roundtrip");
 
+var pageFrames = new[]
+{
+    AerAgentFrame.Text(AerAgentFrameKind.User, 10, "p-user", "inspect repository"),
+    call with { Sequence = 11, Id = "p-call" },
+    result with { Sequence = 12, Id = "p-result", RelatedId = "p-call" },
+    AerAgentFrame.Text(AerAgentFrameKind.Assistant, 13, "p-assistant", "found the parser"),
+    AerAgentFrame.Text(AerAgentFrameKind.User, 14, "p-follow", "now check tests")
+};
+var pages = AerAgentContextPager.BuildPages(pageFrames, targetTokens: 4, tokenEstimator: _ => 2);
+if (pages.Count != 3 || pages[0].StartSequence != 10 || pages[0].EndSequence != 11 || pages[2].EndSequence != 14 || !pages[0].Pinned)
+{
+    Console.Error.WriteLine("FAIL agent-paged-context-boundaries"); failures++;
+}
+else Console.WriteLine("PASS agent-paged-context-boundaries");
+
+var pagesAgain = AerAgentContextPager.BuildPages(pageFrames, targetTokens: 4, tokenEstimator: _ => 2);
+var reuse = AerAgentContextPager.PlanReuse(pages, pagesAgain);
+if (reuse.ReusedPrefixPages != pages.Count || reuse.ReusedTokens != reuse.TotalTokens || !reuse.HasReusablePrefix)
+{
+    Console.Error.WriteLine("FAIL agent-page-cache-reuse"); failures++;
+}
+else Console.WriteLine("PASS agent-page-cache-reuse");
+
+var changedTail = pageFrames.Select(f => f.Id == "p-follow" ? f with { Data = AerValue.String("check tests and benchmarks") } : f).ToArray();
+var changedPages = AerAgentContextPager.BuildPages(changedTail, targetTokens: 4, tokenEstimator: _ => 2);
+var partialReuse = AerAgentContextPager.PlanReuse(pages, changedPages);
+if (partialReuse.ReusedPrefixPages != 2 || partialReuse.ReusedTokens != 8 || partialReuse.TotalTokens != 10)
+{
+    Console.Error.WriteLine("FAIL agent-page-partial-reuse"); failures++;
+}
+else Console.WriteLine("PASS agent-page-partial-reuse");
+
+var cacheKey1 = AerAgentContextPager.ComputeCacheKey(pages[0], "model-v1");
+var cacheKey2 = AerAgentContextPager.ComputeCacheKey(pages[0], "model-v2");
+if (cacheKey1.Length != 64 || cacheKey1 == cacheKey2 || cacheKey1 != AerAgentContextPager.ComputeCacheKey(pages[0], "model-v1"))
+{
+    Console.Error.WriteLine("FAIL agent-page-cache-key"); failures++;
+}
+else Console.WriteLine("PASS agent-page-cache-key");
+
 return failures == 0 ? 0 : 1;
